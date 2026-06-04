@@ -1,10 +1,22 @@
+const SUPABASE_FUNCTION_BASE = "";
+// Later this becomes:
+// const SUPABASE_FUNCTION_BASE = "https://YOUR-PROJECT.supabase.co/functions/v1";
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+const walletScreen = document.getElementById("walletScreen");
 const startScreen = document.getElementById("startScreen");
 const gameScreen = document.getElementById("gameScreen");
 const winnerBox = document.getElementById("winner");
 const actionText = document.getElementById("actionText");
+
+const walletStatus = document.getElementById("walletStatus");
+const xamanPanel = document.getElementById("xamanPanel");
+const xamanQr = document.getElementById("xamanQr");
+const xamanOpen = document.getElementById("xamanOpen");
+const playerAccess = document.getElementById("playerAccess");
+const walletBadge = document.getElementById("walletBadge");
 
 const p1Health = document.getElementById("p1Health");
 const p2Health = document.getElementById("p2Health");
@@ -12,17 +24,24 @@ const p2Health = document.getElementById("p2Health");
 const startBtn = document.getElementById("startBtn");
 const resetBtn = document.getElementById("resetBtn");
 
+const connectWalletBtn = document.getElementById("connectWalletBtn");
+const createWalletBtn = document.getElementById("createWalletBtn");
+const skipWalletBtn = document.getElementById("skipWalletBtn");
+const changeWalletBtn = document.getElementById("changeWalletBtn");
+const cancelWalletBtn = document.getElementById("cancelWalletBtn");
+const mockConnectBtn = document.getElementById("mockConnectBtn");
+
 const input = {
   left: false,
   right: false
 };
 
+let walletProfile = loadWalletProfile();
 let gameOver = false;
 let shake = 0;
 let particles = [];
 let ghostTrainX = -1200;
 let ghostTrainTimer = 0;
-let lastTime = 0;
 
 const gravity = 0.78;
 const groundY = 420;
@@ -71,6 +90,25 @@ const cpu = {
   body: "#111827",
   cape: "#6d28d9"
 };
+
+connectWalletBtn.addEventListener("click", connectXamanWallet);
+createWalletBtn.addEventListener("click", createWallet);
+skipWalletBtn.addEventListener("click", skipWallet);
+changeWalletBtn.addEventListener("click", showWalletScreen);
+cancelWalletBtn.addEventListener("click", () => xamanPanel.classList.add("hide"));
+
+mockConnectBtn.addEventListener("click", () => {
+  walletProfile = {
+    mode: "connected",
+    wallet: "rDuckVerseDemoWallet123456789",
+    access: "wallet",
+    connectedAt: new Date().toISOString()
+  };
+
+  saveWalletProfile(walletProfile);
+  walletStatus.textContent = "Demo wallet connected. Real Xaman link comes next through Supabase.";
+  showStartScreen();
+});
 
 startBtn.addEventListener("click", () => {
   startScreen.classList.add("hide");
@@ -150,6 +188,146 @@ document.querySelectorAll("[data-tap]").forEach(button => {
   button.addEventListener("mouseleave", release);
 });
 
+function loadWalletProfile() {
+  try {
+    const stored = localStorage.getItem("duckVerseWalletProfile");
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveWalletProfile(profile) {
+  localStorage.setItem("duckVerseWalletProfile", JSON.stringify(profile));
+}
+
+function showWalletScreen() {
+  gameScreen.classList.add("hide");
+  startScreen.classList.add("hide");
+  walletScreen.classList.remove("hide");
+}
+
+function showStartScreen() {
+  walletScreen.classList.add("hide");
+  gameScreen.classList.add("hide");
+  startScreen.classList.remove("hide");
+  updateWalletUI();
+}
+
+function updateWalletUI() {
+  if (!walletProfile || walletProfile.mode === "guest") {
+    playerAccess.textContent = "Guest Mode · NFT features locked later";
+    walletBadge.textContent = "1 PLAYER VS CPU · GUEST";
+    return;
+  }
+
+  playerAccess.textContent = `Wallet Connected · ${shortWallet(walletProfile.wallet)}`;
+  walletBadge.textContent = `1 PLAYER VS CPU · WALLET ${shortWallet(walletProfile.wallet)}`;
+}
+
+function shortWallet(wallet) {
+  if (!wallet) return "Connected";
+  if (wallet.length <= 12) return wallet;
+  return wallet.slice(0, 6) + "..." + wallet.slice(-6);
+}
+
+async function connectXamanWallet() {
+  xamanPanel.classList.remove("hide");
+  walletStatus.textContent = "Starting Xaman wallet connection...";
+
+  if (!SUPABASE_FUNCTION_BASE) {
+    walletStatus.textContent =
+      "Supabase is not connected yet. Use Demo Connect for now, then add the Supabase function URL.";
+    xamanQr.classList.add("hide");
+    xamanOpen.classList.add("hide");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${SUPABASE_FUNCTION_BASE}/xaman-signin`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        app: "duck-verse-arena",
+        source: "github-pages"
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not create Xaman sign request.");
+    }
+
+    xamanQr.src = data.qr_png;
+    xamanQr.classList.remove("hide");
+
+    xamanOpen.href = data.deep_link;
+    xamanOpen.classList.remove("hide");
+
+    walletStatus.textContent = "Waiting for Xaman approval...";
+
+    pollXamanStatus(data.uuid);
+  } catch (error) {
+    walletStatus.textContent = error.message;
+  }
+}
+
+async function pollXamanStatus(uuid) {
+  let tries = 0;
+
+  const timer = setInterval(async () => {
+    tries++;
+
+    try {
+      const response = await fetch(`${SUPABASE_FUNCTION_BASE}/xaman-status?uuid=${uuid}`);
+      const data = await response.json();
+
+      if (data.signed && data.account) {
+        clearInterval(timer);
+
+        walletProfile = {
+          mode: "connected",
+          wallet: data.account,
+          access: "wallet",
+          connectedAt: new Date().toISOString()
+        };
+
+        saveWalletProfile(walletProfile);
+        walletStatus.textContent = "Wallet connected.";
+        showStartScreen();
+      }
+
+      if (data.cancelled || tries > 60) {
+        clearInterval(timer);
+        walletStatus.textContent = "Wallet connection cancelled or timed out.";
+      }
+    } catch {
+      clearInterval(timer);
+      walletStatus.textContent = "Could not check Xaman status.";
+    }
+  }, 2000);
+}
+
+function createWallet() {
+  walletStatus.textContent = "Opening Xaman wallet setup...";
+  window.open("https://xaman.app", "_blank", "noopener");
+}
+
+function skipWallet() {
+  walletProfile = {
+    mode: "guest",
+    wallet: null,
+    access: "guest",
+    connectedAt: new Date().toISOString()
+  };
+
+  saveWalletProfile(walletProfile);
+  showStartScreen();
+}
+
 function restartGame() {
   Object.assign(player, {
     x: 170,
@@ -207,7 +385,7 @@ function jump(fighter) {
     fighter.vy = -15.5;
     fighter.actionState = "jump";
     createText(center(fighter), fighter.y + 10, "JUMP!");
-    
+
     if (fighter === player) {
       setAction("JUMP: Super Duck hops over danger.");
     }
@@ -216,6 +394,7 @@ function jump(fighter) {
 
 function punch(attacker, defender) {
   if (gameOver) return;
+
   if (attacker.punchCooldown > 0) {
     if (attacker === player) setAction("PUNCH is recharging.");
     return;
@@ -250,6 +429,7 @@ function punch(attacker, defender) {
 
 function special(attacker, defender) {
   if (gameOver) return;
+
   if (attacker.specialCooldown > 0) {
     if (attacker === player) setAction("SPECIAL is recharging.");
     return;
@@ -678,9 +858,7 @@ function updateCooldownButtons() {
   }
 }
 
-function gameLoop(timestamp) {
-  lastTime = timestamp;
-
+function gameLoop() {
   if (!gameOver) {
     updatePlayer();
     updateCpu();
@@ -710,5 +888,6 @@ function gameLoop(timestamp) {
   requestAnimationFrame(gameLoop);
 }
 
+updateWalletUI();
 restartGame();
-gameLoop(0);
+gameLoop();
