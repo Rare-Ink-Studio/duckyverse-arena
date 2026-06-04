@@ -19,13 +19,13 @@
         <p class="studio">RARE INK STUDIOS PRESENTS</p>
         <h1>DUCK VERSE ARENA</h1>
         <p class="tagline">
-          Super Duck vs Bat Duck inside the haunted Phantom Train Station.
+          A one-player cartoon fighter prototype. You are Super Duck. Bat Duck is CPU.
         </p>
 
-        <button id="startBtn" class="main-btn">Start Fight</button>
+        <button id="startBtn" class="main-btn">START FIGHT</button>
 
         <div class="mini-instructions">
-          <p><strong>Mobile:</strong> Use the buttons at the bottom.</p>
+          <p><strong>Mobile:</strong> Hold LEFT/RIGHT, tap JUMP, PUNCH, or SPECIAL.</p>
           <p><strong>Desktop:</strong> A/D move, W jump, F punch, G special.</p>
         </div>
       </div>
@@ -33,22 +33,29 @@
 
     <section id="gameScreen" class="game-screen hide">
       <div class="topbar">
-        <div class="brand">DUCK VERSE ARENA</div>
+        <div>
+          <div class="brand">DUCK VERSE ARENA</div>
+          <div class="subbrand">1 PLAYER VS CPU</div>
+        </div>
         <button id="resetBtn">Restart</button>
       </div>
 
       <div class="hud">
         <div class="hud-card">
-          <div class="name">Super Duck</div>
+          <div class="name">YOU: SUPER DUCK</div>
           <div class="health"><div id="p1Health"></div></div>
         </div>
 
         <div class="arena-name">PHANTOM TRAIN STATION</div>
 
         <div class="hud-card enemy">
-          <div class="name">Bat Duck</div>
+          <div class="name">CPU: BAT DUCK</div>
           <div class="health"><div id="p2Health"></div></div>
         </div>
+      </div>
+
+      <div id="actionText" class="action-text">
+        Ready. Move close, then tap PUNCH.
       </div>
 
       <div class="canvas-wrap">
@@ -57,11 +64,23 @@
       </div>
 
       <div class="mobile-controls">
-        <button class="control-btn" data-key="left">◀</button>
-        <button class="control-btn" data-key="jump">▲</button>
-        <button class="control-btn" data-key="right">▶</button>
-        <button class="control-btn punch" data-key="punch">PUNCH</button>
-        <button class="control-btn special" data-key="special">SPECIAL</button>
+        <div class="move-pad">
+          <button class="control-btn move" data-hold="left">LEFT</button>
+          <button class="control-btn move jump" data-tap="jump">JUMP</button>
+          <button class="control-btn move" data-hold="right">RIGHT</button>
+        </div>
+
+        <div class="attack-pad">
+          <button class="control-btn punch" data-tap="punch">
+            <span>PUNCH</span>
+            <small>Lunge hit</small>
+          </button>
+
+          <button class="control-btn special" data-tap="special">
+            <span>SPECIAL</span>
+            <small>Dash blast</small>
+          </button>
+        </div>
       </div>
     </section>
   </main>
