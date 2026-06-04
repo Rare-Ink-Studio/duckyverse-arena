@@ -2,70 +2,66 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+  />
   <title>Duck Verse Arena | Rare Ink Studios</title>
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
-  <main class="shell">
-    <section id="startScreen" class="panel start">
-      <img src="assets/duckverse-poster.jpeg" class="poster" alt="Duck Verse poster" />
-      <div class="start-copy">
-        <p class="studio">Rare Ink Studios presents</p>
+  <main class="app">
+    <section id="startScreen" class="start-screen">
+      <img src="assets/duckverse-poster.jpeg" class="poster" alt="Duck Verse Arena" />
+
+      <div class="start-card">
+        <p class="studio">RARE INK STUDIOS PRESENTS</p>
         <h1>DUCK VERSE ARENA</h1>
-        <p class="tag">A ridiculous browser fighting prototype. Two ducks enter. One duck quacks.</p>
-        <button id="startBtn" class="big-btn">Start Fight</button>
-        <button id="howBtn" class="ghost-btn">How to Play</button>
-        <p class="tiny">Playable today. Built to evolve.</p>
+        <p class="tagline">
+          Super Duck vs Bat Duck inside the haunted Phantom Train Station.
+        </p>
+
+        <button id="startBtn" class="main-btn">Start Fight</button>
+
+        <div class="mini-instructions">
+          <p><strong>Mobile:</strong> Use the buttons at the bottom.</p>
+          <p><strong>Desktop:</strong> A/D move, W jump, F punch, G special.</p>
+        </div>
       </div>
     </section>
 
-    <section id="howScreen" class="panel hide">
-      <h2>How to Play</h2>
-      <p><strong>Desktop:</strong> Player 1 uses A/D to move, W to jump, F punch, G special.</p>
-      <p><strong>Desktop:</strong> Player 2 uses arrow keys to move, ↑ jump, / punch, . special.</p>
-      <p><strong>Mobile:</strong> Use the on-screen buttons.</p>
-      <button id="backBtn" class="big-btn">Back</button>
-    </section>
-
-    <section id="gameScreen" class="hide">
-      <header class="topbar">
-        <div class="brand">RARE INK STUDIOS</div>
+    <section id="gameScreen" class="game-screen hide">
+      <div class="topbar">
+        <div class="brand">DUCK VERSE ARENA</div>
         <button id="resetBtn">Restart</button>
-      </header>
+      </div>
 
       <div class="hud">
-        <div class="fighter-card">
-          <span>Super Duck</span>
-          <div class="health"><div id="p1Bar"></div></div>
+        <div class="hud-card">
+          <div class="name">Super Duck</div>
+          <div class="health"><div id="p1Health"></div></div>
         </div>
-        <div id="roundText">PHANTOM TRAIN STATION</div>
-        <div class="fighter-card right">
-          <span>Bat Duck</span>
-          <div class="health"><div id="p2Bar"></div></div>
+
+        <div class="arena-name">PHANTOM TRAIN STATION</div>
+
+        <div class="hud-card enemy">
+          <div class="name">Bat Duck</div>
+          <div class="health"><div id="p2Health"></div></div>
         </div>
       </div>
 
-      <canvas id="game" width="960" height="540"></canvas>
-      <div id="winner" class="winner hide"></div>
+      <div class="canvas-wrap">
+        <canvas id="game" width="960" height="540"></canvas>
+        <div id="winner" class="winner hide"></div>
+      </div>
 
       <div class="mobile-controls">
-        <div class="pad">
-          <button data-key="a">◀</button>
-          <button data-key="w">▲</button>
-          <button data-key="d">▶</button>
-        </div>
-        <div class="pad actions">
-          <button data-key="f">P1 Punch</button>
-          <button data-key="g">P1 Special</button>
-          <button data-key="/">P2 Punch</button>
-          <button data-key=".">P2 Special</button>
-        </div>
-        <div class="pad">
-          <button data-key="ArrowLeft">◀</button>
-          <button data-key="ArrowUp">▲</button>
-          <button data-key="ArrowRight">▶</button>
-        </div>
+        <button class="control-btn" data-key="left">◀</button>
+        <button class="control-btn" data-key="jump">▲</button>
+        <button class="control-btn" data-key="right">▶</button>
+        <button class="control-btn punch" data-key="punch">PUNCH</button>
+        <button class="control-btn special" data-key="special">SPECIAL</button>
       </div>
     </section>
   </main>
