@@ -33,8 +33,9 @@ body {
   display: none !important;
 }
 
-/* START SCREEN */
+/* WALLET HOME */
 
+.wallet-screen,
 .start-screen {
   min-height: 100svh;
   display: flex;
@@ -42,6 +43,92 @@ body {
   justify-content: center;
   gap: 26px;
 }
+
+.wallet-card {
+  max-width: 680px;
+  text-align: center;
+  background: rgba(2, 6, 23, 0.74);
+  border: 3px solid rgba(255, 255, 255, 0.42);
+  border-radius: 26px;
+  padding: 24px;
+  box-shadow: 0 0 34px rgba(56, 189, 248, 0.55);
+}
+
+.wallet-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin: 22px 0;
+}
+
+.wallet-choice {
+  border: 3px solid white;
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.13);
+  color: white;
+  text-align: left;
+  box-shadow: 0 5px 0 black;
+  cursor: pointer;
+}
+
+.wallet-choice span {
+  display: block;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.wallet-choice small {
+  display: block;
+  margin-top: 5px;
+  opacity: 0.88;
+}
+
+.primary-choice {
+  background: rgba(56, 189, 248, 0.9);
+  color: #020617;
+}
+
+.guest-choice {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.wallet-status {
+  min-height: 34px;
+  color: #facc15;
+  font-weight: 900;
+  text-shadow: 2px 2px black;
+}
+
+.xaman-panel {
+  margin-top: 18px;
+  border: 2px solid rgba(250, 204, 21, 0.7);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.qr {
+  width: min(230px, 78vw);
+  border: 4px solid white;
+  border-radius: 16px;
+  background: white;
+  margin: 8px auto;
+  display: block;
+}
+
+.link-btn {
+  display: inline-block;
+  text-decoration: none;
+  margin: 8px;
+}
+
+.tiny-note {
+  font-size: 12px;
+  opacity: 0.78;
+}
+
+/* START SCREEN */
 
 .poster {
   width: min(360px, 42vw);
@@ -74,8 +161,20 @@ h1 {
   line-height: 1.35;
 }
 
+.access-pill {
+  display: inline-block;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 2px solid #facc15;
+  border-radius: 999px;
+  color: #facc15;
+  font-weight: 900;
+  background: rgba(0, 0, 0, 0.36);
+}
+
 .main-btn,
-#resetBtn {
+#resetBtn,
+.small-btn {
   border: 0;
   border-radius: 16px;
   background: #facc15;
@@ -85,6 +184,13 @@ h1 {
   padding: 15px 26px;
   box-shadow: 0 6px 0 black;
   cursor: pointer;
+}
+
+.small-btn {
+  font-size: 15px;
+  padding: 10px 14px;
+  margin: 8px;
+  background: white;
 }
 
 .mini-instructions {
@@ -281,7 +387,8 @@ canvas {
 }
 
 .control-btn:active,
-.control-btn.active {
+.control-btn.active,
+.wallet-choice:active {
   transform: translateY(4px);
   box-shadow: 0 1px 0 black;
   filter: brightness(1.18);
@@ -292,18 +399,23 @@ canvas {
   filter: grayscale(0.8);
 }
 
-/* IPHONE / SMALL SCREENS */
+/* IPHONE */
 
 @media (max-width: 760px) {
   .app {
     padding: 8px;
   }
 
+  .wallet-screen,
   .start-screen {
     min-height: 100svh;
     flex-direction: column;
     text-align: center;
     gap: 14px;
+  }
+
+  .wallet-card {
+    padding: 16px;
   }
 
   .poster {
