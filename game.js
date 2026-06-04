@@ -4,6 +4,7 @@ const ctx = canvas.getContext("2d");
 const startScreen = document.getElementById("startScreen");
 const gameScreen = document.getElementById("gameScreen");
 const winnerBox = document.getElementById("winner");
+const actionText = document.getElementById("actionText");
 
 const p1Health = document.getElementById("p1Health");
 const p2Health = document.getElementById("p2Health");
@@ -11,12 +12,9 @@ const p2Health = document.getElementById("p2Health");
 const startBtn = document.getElementById("startBtn");
 const resetBtn = document.getElementById("resetBtn");
 
-const keys = {
+const input = {
   left: false,
-  right: false,
-  jump: false,
-  punch: false,
-  special: false
+  right: false
 };
 
 let gameOver = false;
@@ -24,45 +22,52 @@ let shake = 0;
 let particles = [];
 let ghostTrainX = -1200;
 let ghostTrainTimer = 0;
+let lastTime = 0;
 
 const gravity = 0.78;
 const groundY = 420;
 
 const player = {
   name: "Super Duck",
+  label: "YOU",
   x: 170,
   y: groundY,
   w: 76,
   h: 104,
   vx: 0,
   vy: 0,
-  speed: 5.6,
+  speed: 5.7,
   facing: 1,
   health: 100,
+  punchCooldown: 0,
+  specialCooldown: 0,
   attackTimer: 0,
   specialTimer: 0,
-  cooldown: 0,
   hitFlash: 0,
+  actionState: "idle",
   body: "#38bdf8",
   cape: "#1d4ed8"
 };
 
-const enemy = {
+const cpu = {
   name: "Bat Duck",
+  label: "CPU",
   x: 720,
   y: groundY,
   w: 76,
   h: 104,
   vx: 0,
   vy: 0,
-  speed: 3.4,
+  speed: 3.35,
   facing: -1,
   health: 100,
+  punchCooldown: 0,
+  specialCooldown: 0,
   attackTimer: 0,
   specialTimer: 0,
-  cooldown: 0,
-  aiTimer: 0,
   hitFlash: 0,
+  aiCooldown: 70,
+  actionState: "idle",
   body: "#111827",
   cape: "#6d28d9"
 };
@@ -78,44 +83,62 @@ resetBtn.addEventListener("click", restartGame);
 document.addEventListener("contextmenu", e => e.preventDefault());
 
 document.addEventListener("keydown", e => {
-  if (e.key === "a" || e.key === "A") keys.left = true;
-  if (e.key === "d" || e.key === "D") keys.right = true;
-  if (e.key === "w" || e.key === "W" || e.key === " ") keys.jump = true;
+  const key = e.key.toLowerCase();
 
-  if (e.key === "f" || e.key === "F") doAttack(player, enemy, false);
-  if (e.key === "g" || e.key === "G") doAttack(player, enemy, true);
+  if (key === "a") input.left = true;
+  if (key === "d") input.right = true;
+  if (key === "w" || e.key === " ") jump(player);
+
+  if (key === "f") punch(player, cpu);
+  if (key === "g") special(player, cpu);
 });
 
 document.addEventListener("keyup", e => {
-  if (e.key === "a" || e.key === "A") keys.left = false;
-  if (e.key === "d" || e.key === "D") keys.right = false;
-  if (e.key === "w" || e.key === "W" || e.key === " ") keys.jump = false;
+  const key = e.key.toLowerCase();
+
+  if (key === "a") input.left = false;
+  if (key === "d") input.right = false;
 });
 
-document.querySelectorAll(".control-btn").forEach(button => {
-  const action = button.dataset.key;
+document.querySelectorAll("[data-hold]").forEach(button => {
+  const action = button.dataset.hold;
+
+  const press = e => {
+    e.preventDefault();
+    input[action] = true;
+    button.classList.add("active");
+  };
+
+  const release = e => {
+    e.preventDefault();
+    input[action] = false;
+    button.classList.remove("active");
+  };
+
+  button.addEventListener("touchstart", press, { passive: false });
+  button.addEventListener("touchend", release, { passive: false });
+  button.addEventListener("touchcancel", release, { passive: false });
+
+  button.addEventListener("mousedown", press);
+  button.addEventListener("mouseup", release);
+  button.addEventListener("mouseleave", release);
+});
+
+document.querySelectorAll("[data-tap]").forEach(button => {
+  const action = button.dataset.tap;
 
   const press = e => {
     e.preventDefault();
     button.classList.add("active");
 
-    if (action === "punch") {
-      doAttack(player, enemy, false);
-      return;
-    }
-
-    if (action === "special") {
-      doAttack(player, enemy, true);
-      return;
-    }
-
-    keys[action] = true;
+    if (action === "jump") jump(player);
+    if (action === "punch") punch(player, cpu);
+    if (action === "special") special(player, cpu);
   };
 
   const release = e => {
     e.preventDefault();
     button.classList.remove("active");
-    keys[action] = false;
   };
 
   button.addEventListener("touchstart", press, { passive: false });
@@ -128,173 +151,260 @@ document.querySelectorAll(".control-btn").forEach(button => {
 });
 
 function restartGame() {
-  player.x = 170;
-  player.y = groundY;
-  player.vx = 0;
-  player.vy = 0;
-  player.facing = 1;
-  player.health = 100;
-  player.attackTimer = 0;
-  player.specialTimer = 0;
-  player.cooldown = 0;
+  Object.assign(player, {
+    x: 170,
+    y: groundY,
+    vx: 0,
+    vy: 0,
+    facing: 1,
+    health: 100,
+    punchCooldown: 0,
+    specialCooldown: 0,
+    attackTimer: 0,
+    specialTimer: 0,
+    hitFlash: 0,
+    actionState: "idle"
+  });
 
-  enemy.x = 720;
-  enemy.y = groundY;
-  enemy.vx = 0;
-  enemy.vy = 0;
-  enemy.facing = -1;
-  enemy.health = 100;
-  enemy.attackTimer = 0;
-  enemy.specialTimer = 0;
-  enemy.cooldown = 0;
-  enemy.aiTimer = 0;
+  Object.assign(cpu, {
+    x: 720,
+    y: groundY,
+    vx: 0,
+    vy: 0,
+    facing: -1,
+    health: 100,
+    punchCooldown: 0,
+    specialCooldown: 0,
+    attackTimer: 0,
+    specialTimer: 0,
+    hitFlash: 0,
+    aiCooldown: 70,
+    actionState: "idle"
+  });
+
+  input.left = false;
+  input.right = false;
 
   particles = [];
   gameOver = false;
+  shake = 0;
+
   winnerBox.classList.add("hide");
   winnerBox.textContent = "";
 
+  setAction("Fight started. Move close, then tap PUNCH.");
   updateHealthBars();
 }
 
-function updatePlayer() {
-  player.vx = 0;
+function setAction(text) {
+  actionText.textContent = text;
+}
 
-  if (keys.left) {
+function jump(fighter) {
+  if (gameOver) return;
+
+  if (fighter.y >= groundY) {
+    fighter.vy = -15.5;
+    fighter.actionState = "jump";
+    createText(center(fighter), fighter.y + 10, "JUMP!");
+    
+    if (fighter === player) {
+      setAction("JUMP: Super Duck hops over danger.");
+    }
+  }
+}
+
+function punch(attacker, defender) {
+  if (gameOver) return;
+  if (attacker.punchCooldown > 0) {
+    if (attacker === player) setAction("PUNCH is recharging.");
+    return;
+  }
+
+  attacker.punchCooldown = 28;
+  attacker.attackTimer = 18;
+  attacker.specialTimer = 0;
+  attacker.actionState = "punch";
+
+  attacker.vx += attacker.facing * 7.5;
+  attacker.x += attacker.facing * 14;
+
+  const hit = attemptHit(attacker, defender, {
+    range: 94,
+    reach: 70,
+    damage: 9,
+    knockback: 8,
+    lift: -5,
+    hitText: "POW!",
+    missText: "MISS!"
+  });
+
+  if (attacker === player) {
+    setAction(
+      hit
+        ? "PUNCH: Super Duck lunged forward and hit Bat Duck."
+        : "PUNCH: Super Duck lunged forward but missed."
+    );
+  }
+}
+
+function special(attacker, defender) {
+  if (gameOver) return;
+  if (attacker.specialCooldown > 0) {
+    if (attacker === player) setAction("SPECIAL is recharging.");
+    return;
+  }
+
+  attacker.specialCooldown = 90;
+  attacker.punchCooldown = 34;
+  attacker.attackTimer = 34;
+  attacker.specialTimer = 34;
+  attacker.actionState = "special";
+
+  attacker.vx += attacker.facing * 15;
+  attacker.x += attacker.facing * 30;
+
+  const hit = attemptHit(attacker, defender, {
+    range: 142,
+    reach: 104,
+    damage: 18,
+    knockback: 14,
+    lift: -9,
+    hitText: "SPECIAL QUACK!",
+    missText: "WHOOSH!"
+  });
+
+  if (attacker === player) {
+    setAction(
+      hit
+        ? "SPECIAL: Super Duck dash-blasted Bat Duck backward."
+        : "SPECIAL: Super Duck dash-blasted forward but missed."
+    );
+  }
+}
+
+function attemptHit(attacker, defender, config) {
+  const attackX = center(attacker) + attacker.facing * config.reach;
+  const attackY = attacker.y + 48;
+
+  const defendX = center(defender);
+  const defendY = defender.y + 50;
+
+  const distance = Math.hypot(attackX - defendX, attackY - defendY);
+
+  if (distance < config.range) {
+    defender.health = Math.max(0, defender.health - config.damage);
+    defender.vx = attacker.facing * config.knockback;
+    defender.vy = config.lift;
+    defender.hitFlash = 12;
+    defender.actionState = "hit";
+
+    shake = config.damage >= 18 ? 16 : 8;
+
+    createImpact(defendX, defendY, config.hitText);
+
+    if (defender.health <= 0) {
+      endGame(`${attacker.name.toUpperCase()} WINS!\nQUACKTORY!`);
+    }
+
+    return true;
+  }
+
+  createText(attackX, attackY, config.missText);
+  return false;
+}
+
+function updatePlayer() {
+  player.vx *= 0.72;
+
+  if (input.left) {
     player.vx = -player.speed;
     player.facing = -1;
+    player.actionState = "walk";
   }
 
-  if (keys.right) {
+  if (input.right) {
     player.vx = player.speed;
     player.facing = 1;
+    player.actionState = "walk";
   }
 
-  if (keys.jump && player.y >= groundY) {
-    player.vy = -15.4;
+  if (!input.left && !input.right && player.y >= groundY && player.attackTimer <= 0) {
+    player.actionState = "idle";
   }
 
   moveFighter(player);
 }
 
-function updateEnemyAI() {
-  const distance = Math.abs(center(enemy) - center(player));
+function updateCpu() {
+  const distance = Math.abs(center(cpu) - center(player));
 
-  enemy.aiTimer--;
+  cpu.aiCooldown--;
 
-  if (center(enemy) < center(player)) {
-    enemy.facing = 1;
+  if (center(cpu) < center(player)) {
+    cpu.facing = 1;
   } else {
-    enemy.facing = -1;
+    cpu.facing = -1;
   }
 
-  enemy.vx = 0;
+  cpu.vx *= 0.72;
 
-  if (distance > 125) {
-    enemy.vx = enemy.facing * enemy.speed;
-  } else if (distance < 70) {
-    enemy.vx = -enemy.facing * 2.1;
+  if (distance > 145) {
+    cpu.vx = cpu.facing * cpu.speed;
+    cpu.actionState = "walk";
+  } else if (distance < 66) {
+    cpu.vx = -cpu.facing * 2.2;
+    cpu.actionState = "backstep";
+  } else if (cpu.attackTimer <= 0 && cpu.y >= groundY) {
+    cpu.actionState = "guard";
   }
 
-  if (enemy.aiTimer <= 0 && distance < 125) {
-    const useSpecial = Math.random() > 0.68;
-    doAttack(enemy, player, useSpecial);
-    enemy.aiTimer = useSpecial ? 95 : 58;
-  }
-
-  if (Math.random() < 0.006 && enemy.y >= groundY) {
-    enemy.vy = -13.5;
-  }
-
-  moveFighter(enemy);
-}
-
-function moveFighter(f) {
-  f.vy += gravity;
-
-  f.x += f.vx;
-  f.y += f.vy;
-
-  if (f.y > groundY) {
-    f.y = groundY;
-    f.vy = 0;
-  }
-
-  f.x = Math.max(18, Math.min(canvas.width - f.w - 18, f.x));
-
-  if (f.cooldown > 0) f.cooldown--;
-  if (f.attackTimer > 0) f.attackTimer--;
-  if (f.specialTimer > 0) f.specialTimer--;
-  if (f.hitFlash > 0) f.hitFlash--;
-}
-
-function doAttack(attacker, defender, special) {
-  if (gameOver) return;
-  if (attacker.cooldown > 0) return;
-
-  attacker.attackTimer = special ? 28 : 16;
-  attacker.specialTimer = special ? 28 : 0;
-  attacker.cooldown = special ? 62 : 24;
-
-  /*
-    This is the important upgrade:
-    the duck now lunges forward when punching
-    and dash-slams when using special.
-  */
-  attacker.vx += attacker.facing * (special ? 15 : 8);
-  attacker.x += attacker.facing * (special ? 24 : 12);
-
-  const hitRange = special ? 138 : 92;
-  const damage = special ? 18 : 9;
-
-  const attackPointX = center(attacker) + attacker.facing * (special ? 92 : 66);
-  const attackPointY = attacker.y + 46;
-
-  const defenderX = center(defender);
-  const defenderY = defender.y + 48;
-
-  const distance = Math.hypot(attackPointX - defenderX, attackPointY - defenderY);
-
-  if (distance < hitRange) {
-    defender.health = Math.max(0, defender.health - damage);
-
-    defender.vx = attacker.facing * (special ? 13 : 8);
-    defender.vy = special ? -9 : -5;
-    defender.hitFlash = 10;
-
-    shake = special ? 16 : 8;
-
-    createImpact(
-      defenderX,
-      defenderY,
-      special ? "SPECIAL QUACK!" : "QUACK!"
-    );
-
-    if (defender.health <= 0) {
-      endGame(`${attacker.name.toUpperCase()} WINS!\nQUACKTORY!`);
+  if (cpu.aiCooldown <= 0 && distance < 150) {
+    if (Math.random() > 0.72 && cpu.specialCooldown <= 0) {
+      special(cpu, player);
+      setAction("CPU SPECIAL: Bat Duck countered with a shadow dash.");
+      cpu.aiCooldown = 110;
+    } else {
+      punch(cpu, player);
+      setAction("CPU PUNCH: Bat Duck struck back.");
+      cpu.aiCooldown = 62;
     }
-  } else {
-    createImpact(
-      attackPointX,
-      attackPointY,
-      special ? "WHOOSH!" : "MISS!"
-    );
   }
+
+  if (Math.random() < 0.004 && cpu.y >= groundY && distance < 170) {
+    jump(cpu);
+  }
+
+  moveFighter(cpu);
 }
 
-function center(f) {
-  return f.x + f.w / 2;
+function moveFighter(fighter) {
+  fighter.vy += gravity;
+
+  fighter.x += fighter.vx;
+  fighter.y += fighter.vy;
+
+  if (fighter.y > groundY) {
+    fighter.y = groundY;
+    fighter.vy = 0;
+  }
+
+  fighter.x = Math.max(18, Math.min(canvas.width - fighter.w - 18, fighter.x));
+
+  if (fighter.punchCooldown > 0) fighter.punchCooldown--;
+  if (fighter.specialCooldown > 0) fighter.specialCooldown--;
+  if (fighter.attackTimer > 0) fighter.attackTimer--;
+  if (fighter.specialTimer > 0) fighter.specialTimer--;
+  if (fighter.hitFlash > 0) fighter.hitFlash--;
 }
 
-function endGame(text) {
-  gameOver = true;
-  winnerBox.textContent = text;
-  winnerBox.classList.remove("hide");
+function center(fighter) {
+  return fighter.x + fighter.w / 2;
 }
 
 function updateHealthBars() {
   p1Health.style.width = player.health + "%";
-  p2Health.style.width = enemy.health + "%";
+  p2Health.style.width = cpu.health + "%";
 
   p1Health.style.background =
     player.health < 35
@@ -302,9 +412,16 @@ function updateHealthBars() {
       : "linear-gradient(90deg, #22c55e, #facc15)";
 
   p2Health.style.background =
-    enemy.health < 35
+    cpu.health < 35
       ? "linear-gradient(90deg, #ef4444, #f97316)"
       : "linear-gradient(90deg, #22c55e, #facc15)";
+}
+
+function endGame(text) {
+  gameOver = true;
+  winnerBox.textContent = text;
+  winnerBox.classList.remove("hide");
+  setAction(text.replace("\n", " "));
 }
 
 function drawArena() {
@@ -394,25 +511,31 @@ function drawGhostTrain() {
   }
 }
 
-function drawDuck(f) {
+function drawDuck(fighter) {
   ctx.save();
-  ctx.translate(f.x, f.y);
+  ctx.translate(fighter.x, fighter.y);
 
-  if (f.hitFlash > 0) {
+  const bob = Math.sin(Date.now() / 120) * 2;
+  const lean =
+    fighter.actionState === "punch" || fighter.actionState === "special"
+      ? fighter.facing * 0.16
+      : 0;
+
+  ctx.rotate(lean);
+
+  if (fighter.hitFlash > 0) {
     ctx.globalAlpha = 0.55;
   }
 
-  const bob = Math.sin(Date.now() / 120) * 2;
-
-  ctx.fillStyle = f.cape;
+  ctx.fillStyle = fighter.cape;
   ctx.beginPath();
   ctx.moveTo(25, 12 + bob);
-  ctx.lineTo(f.facing === 1 ? -22 : 98, 106);
+  ctx.lineTo(fighter.facing === 1 ? -22 : 98, 106);
   ctx.lineTo(56, 78);
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = f.body;
+  ctx.fillStyle = fighter.body;
   ctx.beginPath();
   ctx.ellipse(38, 58 + bob, 36, 48, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -423,7 +546,7 @@ function drawDuck(f) {
 
   ctx.fillStyle = "#facc15";
   ctx.beginPath();
-  if (f.facing === 1) {
+  if (fighter.facing === 1) {
     ctx.ellipse(72, 10 + bob, 24, 11, 0, 0, Math.PI * 2);
   } else {
     ctx.ellipse(4, 10 + bob, 24, 11, 0, 0, Math.PI * 2);
@@ -438,16 +561,16 @@ function drawDuck(f) {
 
   ctx.fillStyle = "#020617";
   ctx.beginPath();
-  ctx.arc(27 + f.facing * 2, 0 + bob, 4, 0, Math.PI * 2);
-  ctx.arc(49 + f.facing * 2, 0 + bob, 4, 0, Math.PI * 2);
+  ctx.arc(27 + fighter.facing * 2, 0 + bob, 4, 0, Math.PI * 2);
+  ctx.arc(49 + fighter.facing * 2, 0 + bob, 4, 0, Math.PI * 2);
   ctx.fill();
 
-  if (f.name === "Super Duck") {
+  if (fighter.name === "Super Duck") {
     ctx.fillStyle = "#1e3a8a";
     ctx.fillRect(15, 21 + bob, 46, 13);
   }
 
-  if (f.name === "Bat Duck") {
+  if (fighter.name === "Bat Duck") {
     ctx.fillStyle = "#020617";
     ctx.beginPath();
     ctx.arc(38, 38 + bob, 20, 0, Math.PI * 2);
@@ -464,24 +587,32 @@ function drawDuck(f) {
   ctx.fillRect(9, 101, 27, 11);
   ctx.fillRect(43, 101, 27, 11);
 
-  if (f.attackTimer > 0) {
-    const fistX = 38 + f.facing * (f.specialTimer > 0 ? 96 : 68);
+  if (fighter.actionState === "guard") {
+    ctx.strokeStyle = "rgba(255,255,255,0.65)";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(38, 48, 52, 0.2, Math.PI * 1.8);
+    ctx.stroke();
+  }
+
+  if (fighter.attackTimer > 0) {
+    const fistX = 38 + fighter.facing * (fighter.specialTimer > 0 ? 96 : 68);
     const fistY = 45;
 
-    ctx.fillStyle = f.specialTimer > 0 ? "#38bdf8" : "#f97316";
+    ctx.fillStyle = fighter.specialTimer > 0 ? "#38bdf8" : "#f97316";
     ctx.beginPath();
-    ctx.arc(fistX, fistY, f.specialTimer > 0 ? 30 : 20, 0, Math.PI * 2);
+    ctx.arc(fistX, fistY, fighter.specialTimer > 0 ? 31 : 21, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = "white";
     ctx.font = "900 16px Arial";
-    ctx.fillText(f.specialTimer > 0 ? "BOOM!" : "POW!", fistX - 25, fistY - 26);
+    ctx.fillText(fighter.specialTimer > 0 ? "BOOM!" : "POW!", fistX - 25, fistY - 28);
   }
 
   ctx.restore();
 }
 
-function createImpact(x, y, text) {
+function createText(x, y, text) {
   particles.push({
     type: "text",
     x,
@@ -489,14 +620,18 @@ function createImpact(x, y, text) {
     text,
     life: 34
   });
+}
 
-  for (let i = 0; i < 12; i++) {
+function createImpact(x, y, text) {
+  createText(x, y, text);
+
+  for (let i = 0; i < 14; i++) {
     particles.push({
       type: "spark",
       x,
       y,
-      vx: (Math.random() - 0.5) * 8,
-      vy: (Math.random() - 0.8) * 8,
+      vx: (Math.random() - 0.5) * 9,
+      vy: (Math.random() - 0.8) * 9,
       life: 28
     });
   }
@@ -526,13 +661,33 @@ function drawParticles() {
   }
 }
 
-function gameLoop() {
+function updateCooldownButtons() {
+  const punchButton = document.querySelector('[data-tap="punch"]');
+  const specialButton = document.querySelector('[data-tap="special"]');
+
+  if (player.punchCooldown > 0) {
+    punchButton.classList.add("locked");
+  } else {
+    punchButton.classList.remove("locked");
+  }
+
+  if (player.specialCooldown > 0) {
+    specialButton.classList.add("locked");
+  } else {
+    specialButton.classList.remove("locked");
+  }
+}
+
+function gameLoop(timestamp) {
+  lastTime = timestamp;
+
   if (!gameOver) {
     updatePlayer();
-    updateEnemyAI();
+    updateCpu();
   }
 
   updateHealthBars();
+  updateCooldownButtons();
 
   ctx.save();
 
@@ -547,7 +702,7 @@ function gameLoop() {
 
   drawArena();
   drawDuck(player);
-  drawDuck(enemy);
+  drawDuck(cpu);
   drawParticles();
 
   ctx.restore();
@@ -556,4 +711,4 @@ function gameLoop() {
 }
 
 restartGame();
-gameLoop();
+gameLoop(0);
