@@ -12,17 +12,76 @@
 
 <body>
   <main class="app">
-    <section id="startScreen" class="start-screen">
+    <section id="walletScreen" class="wallet-screen">
+      <div class="wallet-card">
+        <p class="studio">RARE INK STUDIOS PRESENTS</p>
+        <h1>DUCK VERSE ARENA</h1>
+
+        <p class="tagline">
+          Connect your Xaman wallet, create one, or skip and play as a guest.
+        </p>
+
+        <div class="wallet-choice-grid">
+          <button id="connectWalletBtn" class="wallet-choice primary-choice">
+            <span>Connect Xaman Wallet</span>
+            <small>Future NFT fighters + full access</small>
+          </button>
+
+          <button id="createWalletBtn" class="wallet-choice">
+            <span>Create Wallet</span>
+            <small>Open Xaman wallet setup</small>
+          </button>
+
+          <button id="skipWalletBtn" class="wallet-choice guest-choice">
+            <span>Skip Wallet</span>
+            <small>Play guest mode for now</small>
+          </button>
+        </div>
+
+        <div id="walletStatus" class="wallet-status">
+          Wallet is optional in this prototype. NFT play will be added later.
+        </div>
+
+        <div id="xamanPanel" class="xaman-panel hide">
+          <h2>Xaman Sign In</h2>
+          <p>Scan the QR code with Xaman or tap the open button on mobile.</p>
+
+          <img id="xamanQr" class="qr hide" alt="Xaman QR code" />
+
+          <a id="xamanOpen" class="main-btn link-btn hide" target="_blank" rel="noopener">
+            Open Xaman
+          </a>
+
+          <button id="mockConnectBtn" class="small-btn">
+            Demo Connect Wallet
+          </button>
+
+          <button id="cancelWalletBtn" class="small-btn">
+            Cancel
+          </button>
+
+          <p class="tiny-note">
+            Demo connect is temporary until the Supabase Xaman function is deployed.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="startScreen" class="start-screen hide">
       <img src="assets/duckverse-poster.jpeg" class="poster" alt="Duck Verse Arena" />
 
       <div class="start-card">
         <p class="studio">RARE INK STUDIOS PRESENTS</p>
         <h1>DUCK VERSE ARENA</h1>
+
+        <p id="playerAccess" class="access-pill">Guest Mode</p>
+
         <p class="tagline">
           A one-player cartoon fighter prototype. You are Super Duck. Bat Duck is CPU.
         </p>
 
         <button id="startBtn" class="main-btn">START FIGHT</button>
+        <button id="changeWalletBtn" class="small-btn">Wallet Options</button>
 
         <div class="mini-instructions">
           <p><strong>Mobile:</strong> Hold LEFT/RIGHT, tap JUMP, PUNCH, or SPECIAL.</p>
@@ -35,7 +94,7 @@
       <div class="topbar">
         <div>
           <div class="brand">DUCK VERSE ARENA</div>
-          <div class="subbrand">1 PLAYER VS CPU</div>
+          <div id="walletBadge" class="subbrand">1 PLAYER VS CPU · GUEST</div>
         </div>
         <button id="resetBtn">Restart</button>
       </div>
