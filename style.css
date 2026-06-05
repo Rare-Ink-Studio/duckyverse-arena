@@ -324,7 +324,7 @@ canvas {
   white-space: pre-line;
 }
 
-/* MOBILE CONTROLS */
+/* CONTROLS */
 
 .mobile-controls {
   position: sticky;
@@ -352,21 +352,36 @@ canvas {
 }
 
 .control-btn {
-  min-height: 64px;
+  min-height: 66px;
   border: 3px solid white;
   border-radius: 18px;
   color: white;
   font-weight: 900;
-  font-size: 17px;
+  font-size: 18px;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
   touch-action: none;
   box-shadow: 0 5px 0 black;
+  text-shadow: 2px 2px 0 black;
+  cursor: pointer;
+  padding: 8px 10px;
+}
+
+.control-btn span {
+  display: block;
+  font-size: clamp(15px, 2.3vw, 20px);
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .control-btn small {
   display: block;
-  margin-top: 3px;
-  font-size: 11px;
-  opacity: 0.9;
+  margin-top: 4px;
+  font-size: clamp(10px, 1.5vw, 13px);
+  font-weight: 900;
+  opacity: 0.95;
+  letter-spacing: 0;
+  text-shadow: 1px 1px 0 black;
 }
 
 .move {
@@ -374,16 +389,22 @@ canvas {
 }
 
 .jump {
-  background: rgba(250, 204, 21, 0.86);
+  background: rgba(250, 204, 21, 0.88);
   color: black;
+  text-shadow: none;
+}
+
+.jump span,
+.jump small {
+  text-shadow: none;
 }
 
 .punch {
-  background: rgba(249, 115, 22, 0.92);
+  background: rgba(249, 115, 22, 0.94);
 }
 
 .special {
-  background: rgba(56, 189, 248, 0.92);
+  background: rgba(56, 189, 248, 0.94);
 }
 
 .control-btn:active,
@@ -399,7 +420,7 @@ canvas {
   filter: grayscale(0.8);
 }
 
-/* IPHONE */
+/* IPHONE / SMALL SCREENS */
 
 @media (max-width: 760px) {
   .app {
@@ -457,8 +478,44 @@ canvas {
   .control-btn {
     min-height: 58px;
     font-size: 16px;
+    border-radius: 16px;
+  }
+
+  .control-btn span {
+    font-size: 15px;
+  }
+
+  .control-btn small {
+    font-size: 10px;
   }
 }
+
+/* SMALL MOBILE WIDTH */
+
+@media (max-width: 420px) {
+  .move-pad {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .attack-pad {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .control-btn {
+    min-height: 56px;
+    padding: 7px 6px;
+  }
+
+  .control-btn span {
+    font-size: 13px;
+  }
+
+  .control-btn small {
+    font-size: 9px;
+  }
+}
+
+/* LANDSCAPE MOBILE */
 
 @media (max-height: 520px) and (orientation: landscape) {
   .topbar {
@@ -483,6 +540,14 @@ canvas {
 
   .control-btn {
     min-height: 46px;
+  }
+
+  .control-btn span {
+    font-size: 13px;
+  }
+
+  .control-btn small {
+    display: none;
   }
 
   canvas {
