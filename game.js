@@ -33,6 +33,34 @@ const changeWalletBtn = document.getElementById("changeWalletBtn");
 const cancelWalletBtn = document.getElementById("cancelWalletBtn");
 const mockConnectBtn = document.getElementById("mockConnectBtn");
 
+const SPRITES = {
+  player: "assets/characters/superhero_duck.png",
+  cpu: "assets/characters/pirate_duck.png",
+  fairy: "assets/characters/fairy_duck_mother.png"
+};
+
+const spriteImages = {
+  player: loadSprite(SPRITES.player),
+  cpu: loadSprite(SPRITES.cpu),
+  fairy: loadSprite(SPRITES.fairy)
+};
+
+function loadSprite(src) {
+  const img = new Image();
+  img.src = src;
+  img.loaded = false;
+
+  img.onload = () => {
+    img.loaded = true;
+  };
+
+  img.onerror = () => {
+    console.warn("Could not load sprite:", src);
+  };
+
+  return img;
+}
+
 const input = {
   left: false,
   right: false
@@ -54,8 +82,8 @@ const player = {
   label: "YOU",
   x: 170,
   y: groundY,
-  w: 76,
-  h: 104,
+  w: 92,
+  h: 130,
   vx: 0,
   vy: 0,
   speed: 5.7,
@@ -67,20 +95,22 @@ const player = {
   specialTimer: 0,
   hitFlash: 0,
   actionState: "idle",
+  spriteKey: "player",
+  spriteScale: 1.08,
   body: "#38bdf8",
   cape: "#1d4ed8"
 };
 
 const cpu = {
-  name: "Bat Duck",
+  name: "Pirate Duck",
   label: "CPU",
   x: 720,
   y: groundY,
-  w: 76,
-  h: 104,
+  w: 98,
+  h: 135,
   vx: 0,
   vy: 0,
-  speed: 3.35,
+  speed: 3.2,
   facing: -1,
   health: 100,
   punchCooldown: 0,
@@ -90,8 +120,10 @@ const cpu = {
   hitFlash: 0,
   aiCooldown: 70,
   actionState: "idle",
-  body: "#111827",
-  cape: "#6d28d9"
+  spriteKey: "cpu",
+  spriteScale: 1.12,
+  body: "#0f172a",
+  cape: "#7c2d12"
 };
 
 connectWalletBtn.addEventListener("click", connectXamanWallet);
@@ -108,18 +140,16 @@ cancelWalletBtn.addEventListener("click", () => {
 mockConnectBtn.addEventListener("click", async () => {
   walletProfile = {
     mode: "connected",
-    wallet: "rDuckVerseDemoWallet123456789",
+    wallet: "rDuckyverseBackupWallet123456789",
     access: "wallet",
     connectedAt: new Date().toISOString()
   };
 
   saveWalletProfile(walletProfile);
   await saveDuckVersePlayer(walletProfile);
-  await saveDuckVerseWalletEvent("demo_wallet_connected", walletProfile);
+  await saveDuckVerseWalletEvent("backup_wallet_connected", walletProfile);
 
-  walletStatus.textContent =
-    "Demo wallet connected. This is a test wallet entry.";
-
+  walletStatus.textContent = "Wallet connected with backup test flow.";
   showStartScreen();
 });
 
@@ -380,13 +410,17 @@ async function connectXamanWallet() {
     walletStatus.textContent =
       "Xaman request created. Scan the QR code or tap Open Xaman, then approve the sign-in.";
 
-    await saveDuckVerseWalletEvent("xaman_signin_started", {
-      mode: "pending",
-      wallet: null,
-      access: "pending"
-    }, {
-      uuid: data.uuid
-    });
+    await saveDuckVerseWalletEvent(
+      "xaman_signin_started",
+      {
+        mode: "pending",
+        wallet: null,
+        access: "pending"
+      },
+      {
+        uuid: data.uuid
+      }
+    );
 
     pollXamanStatus(data.uuid);
   } catch (error) {
@@ -445,50 +479,32 @@ function pollXamanStatus(uuid) {
         return;
       }
 
-      if (data.cancelled) {
+      if (data.cancelled || data.expired || tries > 90) {
         stopXamanPolling();
 
-        walletStatus.textContent = "Xaman sign-in was cancelled.";
+        const eventType = data.cancelled
+          ? "xaman_signin_cancelled"
+          : data.expired
+            ? "xaman_signin_expired"
+            : "xaman_signin_timeout";
 
-        await saveDuckVerseWalletEvent("xaman_signin_cancelled", {
-          mode: "cancelled",
-          wallet: null,
-          access: "guest"
-        }, {
-          uuid
-        });
+        walletStatus.textContent = data.cancelled
+          ? "Xaman sign-in was cancelled."
+          : data.expired
+            ? "Xaman sign-in expired. Tap Connect Xaman Wallet again."
+            : "Xaman sign-in timed out. Tap Connect Xaman Wallet again.";
 
-        return;
-      }
-
-      if (data.expired) {
-        stopXamanPolling();
-
-        walletStatus.textContent = "Xaman sign-in expired. Tap Connect Xaman Wallet again.";
-
-        await saveDuckVerseWalletEvent("xaman_signin_expired", {
-          mode: "expired",
-          wallet: null,
-          access: "guest"
-        }, {
-          uuid
-        });
-
-        return;
-      }
-
-      if (tries > 90) {
-        stopXamanPolling();
-
-        walletStatus.textContent = "Xaman sign-in timed out. Tap Connect Xaman Wallet again.";
-
-        await saveDuckVerseWalletEvent("xaman_signin_timeout", {
-          mode: "timeout",
-          wallet: null,
-          access: "guest"
-        }, {
-          uuid
-        });
+        await saveDuckVerseWalletEvent(
+          eventType,
+          {
+            mode: eventType,
+            wallet: null,
+            access: "guest"
+          },
+          {
+            uuid
+          }
+        );
       }
     } catch (error) {
       console.warn("Xaman status check error:", error);
@@ -587,7 +603,7 @@ function jump(fighter) {
   if (fighter.y >= groundY) {
     fighter.vy = -15.5;
     fighter.actionState = "jump";
-    createText(center(fighter), fighter.y + 10, "JUMP!");
+    createText(center(fighter), fighter.y - 95, "JUMP!");
 
     if (fighter === player) {
       setAction("JUMP: Super Duck hops over danger.");
@@ -612,8 +628,8 @@ function punch(attacker, defender) {
   attacker.x += attacker.facing * 14;
 
   const hit = attemptHit(attacker, defender, {
-    range: 94,
-    reach: 70,
+    range: 106,
+    reach: 76,
     damage: 9,
     knockback: 8,
     lift: -5,
@@ -624,7 +640,7 @@ function punch(attacker, defender) {
   if (attacker === player) {
     setAction(
       hit
-        ? "PUNCH: Super Duck lunged forward and hit Bat Duck."
+        ? "PUNCH: Super Duck lunged forward and hit Pirate Duck."
         : "PUNCH: Super Duck lunged forward but missed."
     );
   }
@@ -648,8 +664,8 @@ function special(attacker, defender) {
   attacker.x += attacker.facing * 30;
 
   const hit = attemptHit(attacker, defender, {
-    range: 142,
-    reach: 104,
+    range: 154,
+    reach: 112,
     damage: 18,
     knockback: 14,
     lift: -9,
@@ -660,7 +676,7 @@ function special(attacker, defender) {
   if (attacker === player) {
     setAction(
       hit
-        ? "SPECIAL: Super Duck dash-blasted Bat Duck backward."
+        ? "SPECIAL: Super Duck dash-blasted Pirate Duck backward."
         : "SPECIAL: Super Duck dash-blasted forward but missed."
     );
   }
@@ -668,10 +684,10 @@ function special(attacker, defender) {
 
 function attemptHit(attacker, defender, config) {
   const attackX = center(attacker) + attacker.facing * config.reach;
-  const attackY = attacker.y + 48;
+  const attackY = attacker.y - 60;
 
   const defendX = center(defender);
-  const defendY = defender.y + 50;
+  const defendY = defender.y - 60;
 
   const distance = Math.hypot(attackX - defendX, attackY - defendY);
 
@@ -732,29 +748,29 @@ function updateCpu() {
 
   cpu.vx *= 0.72;
 
-  if (distance > 145) {
+  if (distance > 155) {
     cpu.vx = cpu.facing * cpu.speed;
     cpu.actionState = "walk";
-  } else if (distance < 66) {
+  } else if (distance < 74) {
     cpu.vx = -cpu.facing * 2.2;
     cpu.actionState = "backstep";
   } else if (cpu.attackTimer <= 0 && cpu.y >= groundY) {
     cpu.actionState = "guard";
   }
 
-  if (cpu.aiCooldown <= 0 && distance < 150) {
-    if (Math.random() > 0.72 && cpu.specialCooldown <= 0) {
+  if (cpu.aiCooldown <= 0 && distance < 160) {
+    if (Math.random() > 0.74 && cpu.specialCooldown <= 0) {
       special(cpu, player);
-      setAction("CPU SPECIAL: Bat Duck countered with a shadow dash.");
-      cpu.aiCooldown = 110;
+      setAction("CPU SPECIAL: Pirate Duck charged forward.");
+      cpu.aiCooldown = 112;
     } else {
       punch(cpu, player);
-      setAction("CPU PUNCH: Bat Duck struck back.");
-      cpu.aiCooldown = 62;
+      setAction("CPU PUNCH: Pirate Duck struck back.");
+      cpu.aiCooldown = 64;
     }
   }
 
-  if (Math.random() < 0.004 && cpu.y >= groundY && distance < 170) {
+  if (Math.random() < 0.004 && cpu.y >= groundY && distance < 180) {
     jump(cpu);
   }
 
@@ -772,7 +788,7 @@ function moveFighter(fighter) {
     fighter.vy = 0;
   }
 
-  fighter.x = Math.max(18, Math.min(canvas.width - fighter.w - 18, fighter.x));
+  fighter.x = Math.max(28, Math.min(canvas.width - fighter.w - 28, fighter.x));
 
   if (fighter.punchCooldown > 0) fighter.punchCooldown--;
   if (fighter.specialCooldown > 0) fighter.specialCooldown--;
@@ -895,16 +911,92 @@ function drawGhostTrain() {
 }
 
 function drawDuck(fighter) {
+  const img = spriteImages[fighter.spriteKey];
+
+  if (img && img.loaded) {
+    drawSpriteDuck(fighter, img);
+    return;
+  }
+
+  drawFallbackDuck(fighter);
+}
+
+function drawSpriteDuck(fighter, img) {
   ctx.save();
+
+  const jumpOffset = fighter.y - groundY;
+
+  const bob =
+    fighter.y >= groundY && fighter.actionState !== "hit"
+      ? Math.sin(Date.now() / 120) * 2
+      : 0;
+
+  const attackLean =
+    fighter.actionState === "punch" || fighter.actionState === "special"
+      ? fighter.facing * 0.08
+      : 0;
+
+  let drawH = 176 * fighter.spriteScale;
+  let drawW = drawH * (img.naturalWidth / img.naturalHeight);
+
+  if (fighter.spriteKey === "cpu") {
+    drawH = 188 * fighter.spriteScale;
+    drawW = drawH * (img.naturalWidth / img.naturalHeight);
+  }
+
+  const footY = groundY + 118 + jumpOffset + bob;
+  const drawX = fighter.x + fighter.w / 2 - drawW / 2;
+  const drawY = footY - drawH;
+
+  ctx.translate(fighter.x + fighter.w / 2, footY - drawH / 2);
+  ctx.rotate(attackLean);
+
+  if (fighter.facing === -1) {
+    ctx.scale(-1, 1);
+  }
+
+  if (fighter.hitFlash > 0) {
+    ctx.globalAlpha = 0.55;
+  }
+
+  ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+
+  if (fighter.attackTimer > 0) {
+    const fistX = fighter.facing === -1 ? -drawW * 0.38 : drawW * 0.38;
+    const fistY = -drawH * 0.24;
+
+    ctx.fillStyle = fighter.specialTimer > 0 ? "#38bdf8" : "#f97316";
+    ctx.beginPath();
+    ctx.arc(fistX, fistY, fighter.specialTimer > 0 ? 24 : 17, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "white";
+    ctx.font = "900 15px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(fighter.specialTimer > 0 ? "BOOM!" : "POW!", fistX, fistY - 24);
+    ctx.textAlign = "left";
+  }
+
+  if (fighter.actionState === "guard") {
+    ctx.strokeStyle = "rgba(255,255,255,0.65)";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(0, -drawH * 0.35, 50, 0.2, Math.PI * 1.8);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+
+  fighter.h = drawH;
+  fighter.w = Math.min(120, drawW * 0.72);
+}
+
+function drawFallbackDuck(fighter) {
+  ctx.save();
+
   ctx.translate(fighter.x, fighter.y);
 
   const bob = Math.sin(Date.now() / 120) * 2;
-  const lean =
-    fighter.actionState === "punch" || fighter.actionState === "special"
-      ? fighter.facing * 0.16
-      : 0;
-
-  ctx.rotate(lean);
 
   if (fighter.hitFlash > 0) {
     ctx.globalAlpha = 0.55;
@@ -950,53 +1042,9 @@ function drawDuck(fighter) {
   ctx.arc(49 + fighter.facing * 2, 0 + bob, 4, 0, Math.PI * 2);
   ctx.fill();
 
-  if (fighter.name === "Super Duck") {
-    ctx.fillStyle = "#1e3a8a";
-    ctx.fillRect(15, 21 + bob, 46, 13);
-  }
-
-  if (fighter.name === "Bat Duck") {
-    ctx.fillStyle = "#020617";
-    ctx.beginPath();
-    ctx.arc(38, 38 + bob, 20, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.arc(30, 35 + bob, 5, 0, Math.PI * 2);
-    ctx.arc(46, 35 + bob, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
   ctx.fillStyle = "#f59e0b";
   ctx.fillRect(9, 101, 27, 11);
   ctx.fillRect(43, 101, 27, 11);
-
-  if (fighter.actionState === "guard") {
-    ctx.strokeStyle = "rgba(255,255,255,0.65)";
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.arc(38, 48, 52, 0.2, Math.PI * 1.8);
-    ctx.stroke();
-  }
-
-  if (fighter.attackTimer > 0) {
-    const fistX = 38 + fighter.facing * (fighter.specialTimer > 0 ? 96 : 68);
-    const fistY = 45;
-
-    ctx.fillStyle = fighter.specialTimer > 0 ? "#38bdf8" : "#f97316";
-    ctx.beginPath();
-    ctx.arc(fistX, fistY, fighter.specialTimer > 0 ? 31 : 21, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "white";
-    ctx.font = "900 16px Arial";
-    ctx.fillText(
-      fighter.specialTimer > 0 ? "BOOM!" : "POW!",
-      fistX - 25,
-      fistY - 28
-    );
-  }
 
   ctx.restore();
 }
