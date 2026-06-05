@@ -1,6 +1,8 @@
-const SUPABASE_FUNCTION_BASE = "";
-// Later this becomes:
-// const SUPABASE_FUNCTION_BASE = "https://YOUR-PROJECT.supabase.co/functions/v1";
+const SUPABASE_URL = "https://mtlkzpukuwmbjmevcmam.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_bz9r-y7GSpOom92JEBYvKg_i5jf1Ex4";
+
+const SUPABASE_REST_BASE = `${SUPABASE_URL}/rest/v1`;
+const SUPABASE_FUNCTION_BASE = `${SUPABASE_URL}/functions/v1`;
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -97,13 +99,21 @@ skipWalletBtn.addEventListener("click", skipWallet);
 changeWalletBtn.addEventListener("click", showWalletScreen);
 cancelWalletBtn.addEventListener("click", () => xamanPanel.classList.add("hide"));
 
-mockConnectBtn.addEventListener("click", () => {
+mockConnectBtn.addEventListener("click", async () => {
   walletProfile = {
     mode: "connected",
     wallet: "rDuckVerseDemoWallet123456789",
     access: "wallet",
     connectedAt: new Date().toISOString()
   };
+
+  saveWalletProfile(walletProfile);
+  await saveDuckVersePlayer(walletProfile);
+  await saveDuckVerseWalletEvent("demo_wallet_connected", walletProfile);
+
+  walletStatus.textContent = "Demo wallet connected. Real Xaman link comes next through Supabase.";
+  showStartScreen();
+});
 
   saveWalletProfile(walletProfile);
   walletStatus.textContent = "Demo wallet connected. Real Xaman link comes next through Supabase.";
@@ -200,7 +210,78 @@ function loadWalletProfile() {
 function saveWalletProfile(profile) {
   localStorage.setItem("duckVerseWalletProfile", JSON.stringify(profile));
 }
+function getDuckVerseSessionId() {
+  let sessionId = localStorage.getItem("duckVerseSessionId");
 
+  if (!sessionId) {
+    sessionId = crypto.randomUUID
+      ? crypto.randomUUID()
+      : "session_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+
+    localStorage.setItem("duckVerseSessionId", sessionId);
+  }
+
+  return sessionId;
+}
+
+async function saveDuckVersePlayer(profile) {
+  try {
+    const response = await fetch(`${SUPABASE_REST_BASE}/duckverse_players`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        "Prefer": "return=minimal"
+      },
+      body: JSON.stringify({
+        session_id: getDuckVerseSessionId(),
+        wallet_address: profile.wallet || null,
+        wallet_type: profile.wallet ? "xaman" : null,
+        access_level: profile.access || "guest",
+        nft_enabled: false,
+        last_seen_at: new Date().toISOString()
+      })
+    });
+
+    if (!response.ok) {
+      console.warn("Supabase player save failed:", await response.text());
+    }
+  } catch (error) {
+    console.warn("Supabase player save failed:", error);
+  }
+}
+
+async function saveDuckVerseWalletEvent(eventType, profile, extraData = {}) {
+  try {
+    const response = await fetch(`${SUPABASE_REST_BASE}/duckverse_wallet_events`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        "Prefer": "return=minimal"
+      },
+      body: JSON.stringify({
+        wallet_address: profile.wallet || null,
+        event_type: eventType,
+        event_data: {
+          app: "duck-verse-arena",
+          access: profile.access || "guest",
+          mode: profile.mode || "guest",
+          session_id: getDuckVerseSessionId(),
+          ...extraData
+        }
+      })
+    });
+
+    if (!response.ok) {
+      console.warn("Supabase wallet event save failed:", await response.text());
+    }
+  } catch (error) {
+    console.warn("Supabase wallet event save failed:", error);
+  }
+}
 function showWalletScreen() {
   gameScreen.classList.add("hide");
   startScreen.classList.add("hide");
@@ -316,7 +397,7 @@ function createWallet() {
   window.open("https://xaman.app", "_blank", "noopener");
 }
 
-function skipWallet() {
+async function skipWallet() {
   walletProfile = {
     mode: "guest",
     wallet: null,
@@ -325,9 +406,11 @@ function skipWallet() {
   };
 
   saveWalletProfile(walletProfile);
+  await saveDuckVersePlayer(walletProfile);
+  await saveDuckVerseWalletEvent("guest_skipped_wallet", walletProfile);
+
   showStartScreen();
 }
-
 function restartGame() {
   Object.assign(player, {
     x: 170,
