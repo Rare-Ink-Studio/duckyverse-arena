@@ -44,6 +44,7 @@ let shake = 0;
 let particles = [];
 let ghostTrainX = -1200;
 let ghostTrainTimer = 0;
+let activeXamanPoll = null;
 
 const gravity = 0.78;
 const groundY = 420;
@@ -97,7 +98,12 @@ connectWalletBtn.addEventListener("click", connectXamanWallet);
 createWalletBtn.addEventListener("click", createWallet);
 skipWalletBtn.addEventListener("click", skipWallet);
 changeWalletBtn.addEventListener("click", showWalletScreen);
-cancelWalletBtn.addEventListener("click", () => xamanPanel.classList.add("hide"));
+
+cancelWalletBtn.addEventListener("click", () => {
+  xamanPanel.classList.add("hide");
+  walletStatus.textContent = "Wallet connection cancelled. You can connect, create, or skip.";
+  stopXamanPolling();
+});
 
 mockConnectBtn.addEventListener("click", async () => {
   walletProfile = {
@@ -112,7 +118,7 @@ mockConnectBtn.addEventListener("click", async () => {
   await saveDuckVerseWalletEvent("demo_wallet_connected", walletProfile);
 
   walletStatus.textContent =
-    "Demo wallet connected. Real Xaman link comes next through Supabase.";
+    "Demo wallet connected. This is a test wallet entry.";
 
   showStartScreen();
 });
@@ -197,25 +203,36 @@ document.querySelectorAll("[data-tap]").forEach(button => {
 
 function loadWalletProfile() {
   try {
-    const stored = localStorage.getItem("duckVerseWalletProfile");
-    return stored ? JSON.parse(stored) : null;
+    const stored = localStorage.getItem("duckyverseWalletProfile");
+    const oldStored = localStorage.getItem("duckVerseWalletProfile");
+
+    if (stored) return JSON.parse(stored);
+    if (oldStored) return JSON.parse(oldStored);
+
+    return null;
   } catch {
     return null;
   }
 }
 
 function saveWalletProfile(profile) {
+  localStorage.setItem("duckyverseWalletProfile", JSON.stringify(profile));
   localStorage.setItem("duckVerseWalletProfile", JSON.stringify(profile));
 }
 
 function getDuckVerseSessionId() {
-  let sessionId = localStorage.getItem("duckVerseSessionId");
+  let sessionId = localStorage.getItem("duckyverseSessionId");
+
+  if (!sessionId) {
+    sessionId = localStorage.getItem("duckVerseSessionId");
+  }
 
   if (!sessionId) {
     sessionId = crypto.randomUUID
       ? crypto.randomUUID()
       : "session_" + Date.now() + "_" + Math.random().toString(16).slice(2);
 
+    localStorage.setItem("duckyverseSessionId", sessionId);
     localStorage.setItem("duckVerseSessionId", sessionId);
   }
 
@@ -264,7 +281,8 @@ async function saveDuckVerseWalletEvent(eventType, profile, extraData = {}) {
         wallet_address: profile.wallet || null,
         event_type: eventType,
         event_data: {
-          app: "duck-verse-arena",
+          app: "duckyverse-arena",
+          brand: "DUCKYVERSE",
           access: profile.access || "guest",
           mode: profile.mode || "guest",
           session_id: getDuckVerseSessionId(),
@@ -282,12 +300,14 @@ async function saveDuckVerseWalletEvent(eventType, profile, extraData = {}) {
 }
 
 function showWalletScreen() {
+  stopXamanPolling();
   gameScreen.classList.add("hide");
   startScreen.classList.add("hide");
   walletScreen.classList.remove("hide");
 }
 
 function showStartScreen() {
+  stopXamanPolling();
   walletScreen.classList.add("hide");
   gameScreen.classList.add("hide");
   startScreen.classList.remove("hide");
@@ -312,14 +332,181 @@ function shortWallet(wallet) {
 }
 
 async function connectXamanWallet() {
-  xamanPanel.classList.remove("hide");
-  walletStatus.textContent = "Starting Xaman wallet connection...";
+  stopXamanPolling();
 
-  walletStatus.textContent =
-    "Real Xaman connection will activate after the Supabase Edge Functions are added. Use Demo Connect for now.";
+  xamanPanel.classList.remove("hide");
+  walletStatus.textContent = "Creating Xaman sign-in request...";
 
   xamanQr.classList.add("hide");
   xamanOpen.classList.add("hide");
+  xamanQr.removeAttribute("src");
+  xamanOpen.removeAttribute("href");
+
+  try {
+    const response = await fetch(`${SUPABASE_FUNCTION_BASE}/xaman-signin`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({
+        app: "duckyverse-arena",
+        brand: "DUCKYVERSE",
+        session_id: getDuckVerseSessionId()
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not create Xaman sign-in request.");
+    }
+
+    if (!data.uuid) {
+      throw new Error("Xaman did not return a sign-in UUID.");
+    }
+
+    if (data.qr_png) {
+      xamanQr.src = data.qr_png;
+      xamanQr.classList.remove("hide");
+    }
+
+    if (data.deep_link) {
+      xamanOpen.href = data.deep_link;
+      xamanOpen.classList.remove("hide");
+    }
+
+    walletStatus.textContent =
+      "Xaman request created. Scan the QR code or tap Open Xaman, then approve the sign-in.";
+
+    await saveDuckVerseWalletEvent("xaman_signin_started", {
+      mode: "pending",
+      wallet: null,
+      access: "pending"
+    }, {
+      uuid: data.uuid
+    });
+
+    pollXamanStatus(data.uuid);
+  } catch (error) {
+    walletStatus.textContent =
+      "Xaman connection error: " + (error.message || "Unknown error.");
+
+    console.warn("Xaman connection error:", error);
+  }
+}
+
+function pollXamanStatus(uuid) {
+  let tries = 0;
+
+  stopXamanPolling();
+
+  activeXamanPoll = setInterval(async () => {
+    tries++;
+
+    try {
+      const response = await fetch(
+        `${SUPABASE_FUNCTION_BASE}/xaman-status?uuid=${encodeURIComponent(uuid)}`,
+        {
+          method: "GET",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Could not check Xaman status.");
+      }
+
+      if (data.signed && data.account) {
+        stopXamanPolling();
+
+        walletProfile = {
+          mode: "connected",
+          wallet: data.account,
+          access: "wallet",
+          connectedAt: new Date().toISOString(),
+          xamanUuid: uuid
+        };
+
+        saveWalletProfile(walletProfile);
+        await saveDuckVersePlayer(walletProfile);
+        await saveDuckVerseWalletEvent("xaman_wallet_connected", walletProfile, {
+          uuid
+        });
+
+        walletStatus.textContent = `Wallet connected: ${shortWallet(data.account)}`;
+        showStartScreen();
+        return;
+      }
+
+      if (data.cancelled) {
+        stopXamanPolling();
+
+        walletStatus.textContent = "Xaman sign-in was cancelled.";
+
+        await saveDuckVerseWalletEvent("xaman_signin_cancelled", {
+          mode: "cancelled",
+          wallet: null,
+          access: "guest"
+        }, {
+          uuid
+        });
+
+        return;
+      }
+
+      if (data.expired) {
+        stopXamanPolling();
+
+        walletStatus.textContent = "Xaman sign-in expired. Tap Connect Xaman Wallet again.";
+
+        await saveDuckVerseWalletEvent("xaman_signin_expired", {
+          mode: "expired",
+          wallet: null,
+          access: "guest"
+        }, {
+          uuid
+        });
+
+        return;
+      }
+
+      if (tries > 90) {
+        stopXamanPolling();
+
+        walletStatus.textContent = "Xaman sign-in timed out. Tap Connect Xaman Wallet again.";
+
+        await saveDuckVerseWalletEvent("xaman_signin_timeout", {
+          mode: "timeout",
+          wallet: null,
+          access: "guest"
+        }, {
+          uuid
+        });
+      }
+    } catch (error) {
+      console.warn("Xaman status check error:", error);
+
+      if (tries > 3) {
+        stopXamanPolling();
+        walletStatus.textContent =
+          "Could not check Xaman status. Please try connecting again.";
+      }
+    }
+  }, 2000);
+}
+
+function stopXamanPolling() {
+  if (activeXamanPoll) {
+    clearInterval(activeXamanPoll);
+    activeXamanPoll = null;
+  }
 }
 
 function createWallet() {
@@ -328,6 +515,8 @@ function createWallet() {
 }
 
 async function skipWallet() {
+  stopXamanPolling();
+
   walletProfile = {
     mode: "guest",
     wallet: null,
@@ -802,7 +991,11 @@ function drawDuck(fighter) {
 
     ctx.fillStyle = "white";
     ctx.font = "900 16px Arial";
-    ctx.fillText(fighter.specialTimer > 0 ? "BOOM!" : "POW!", fistX - 25, fistY - 28);
+    ctx.fillText(
+      fighter.specialTimer > 0 ? "BOOM!" : "POW!",
+      fistX - 25,
+      fistY - 28
+    );
   }
 
   ctx.restore();
