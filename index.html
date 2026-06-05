@@ -84,8 +84,8 @@
         <button id="changeWalletBtn" class="small-btn">Wallet Options</button>
 
         <div class="mini-instructions">
-          <p><strong>Mobile:</strong> Hold LEFT/RIGHT, tap JUMP, PUNCH, or SPECIAL.</p>
-          <p><strong>Desktop:</strong> A/D move, W jump, F punch, G special.</p>
+          <p><strong>Mobile:</strong> Hold LEFT, RIGHT, tap JUMP, PUNCH, or SPECIAL.</p>
+          <p><strong>Desktop:</strong> A = LEFT, D = RIGHT, W = JUMP, F = PUNCH, G = SPECIAL.</p>
         </div>
       </div>
     </section>
@@ -124,19 +124,27 @@
 
       <div class="mobile-controls">
         <div class="move-pad">
-          <button class="control-btn move" data-hold="left">LEFT</button>
-          <button class="control-btn move jump" data-tap="jump">JUMP</button>
-          <button class="control-btn move" data-hold="right">RIGHT</button>
+          <button class="control-btn move" data-hold="left">
+            <span>LEFT (A)</span>
+          </button>
+
+          <button class="control-btn move jump" data-tap="jump">
+            <span>JUMP (W)</span>
+          </button>
+
+          <button class="control-btn move" data-hold="right">
+            <span>RIGHT (D)</span>
+          </button>
         </div>
 
         <div class="attack-pad">
           <button class="control-btn punch" data-tap="punch">
-            <span>PUNCH</span>
+            <span>PUNCH (F)</span>
             <small>Lunge hit</small>
           </button>
 
           <button class="control-btn special" data-tap="special">
-            <span>SPECIAL</span>
+            <span>SPECIAL (G)</span>
             <small>Dash blast</small>
           </button>
         </div>
