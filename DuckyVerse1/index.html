@@ -52,16 +52,31 @@
           <h2>Xaman Sign In</h2>
 
           <p>
-            Xaman wallet connection will be added after the playable game is working on GitHub.
+            Scan the QR code with Xaman or tap the open button on mobile.
           </p>
 
+          <img id="xamanQr" class="qr hide" alt="Xaman QR code" />
+
+          <a
+            id="xamanOpen"
+            class="main-btn link-btn hide"
+            target="_blank"
+            rel="noopener"
+          >
+            Open Xaman
+          </a>
+
           <button id="mockConnectBtn" class="small-btn">
-            Continue as Wallet Connected
+            Connect Wallet Backup
           </button>
 
           <button id="cancelWalletBtn" class="small-btn">
             Cancel
           </button>
+
+          <p class="tiny-note">
+            The backup button is only for testing if Xaman is unavailable.
+          </p>
         </div>
       </div>
     </section>
@@ -79,10 +94,12 @@
 
         <h1>DUCKYVERSE</h1>
 
-        <p id="playerAccess" class="access-pill">Guest Mode</p>
+        <p id="playerAccess" class="access-pill">
+          Guest Mode
+        </p>
 
         <p class="tagline">
-          A one-player cartoon fighter prototype. You are Hero Duck. Rival Duck is CPU.
+          A one-player cartoon fighter prototype. You are Hero Duck. Villanous Duck is CPU.
         </p>
 
         <button id="startBtn" class="main-btn">
@@ -131,7 +148,7 @@
         </div>
 
         <div class="hud-card enemy">
-          <div class="name">CPU: RIVAL DUCK</div>
+          <div class="name">CPU: VILLANOUS DUCK</div>
           <div class="health">
             <div id="p2Health"></div>
           </div>
