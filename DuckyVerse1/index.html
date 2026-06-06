@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+  />
+
+  <title>DUCKYVERSE | Rare Ink Studios</title>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <main class="app">
+
+    <!-- WALLET SCREEN -->
+    <section id="walletScreen" class="wallet-screen">
+      <div class="wallet-card">
+        <p class="studio">RARE INK STUDIOS PRESENTS</p>
+
+        <h1>DUCKYVERSE</h1>
+
+        <p class="tagline">
+          Connect your Xaman wallet, create one, or skip and play as a guest.
+        </p>
+
+        <div class="wallet-choice-grid">
+          <button id="connectWalletBtn" class="wallet-choice primary-choice">
+            <span>Connect Xaman Wallet</span>
+            <small>Future NFT fighters + full access</small>
+          </button>
+
+          <button id="createWalletBtn" class="wallet-choice">
+            <span>Create Wallet</span>
+            <small>Open Xaman wallet setup</small>
+          </button>
+
+          <button id="skipWalletBtn" class="wallet-choice guest-choice">
+            <span>Skip Wallet</span>
+            <small>Play guest mode for now</small>
+          </button>
+        </div>
+
+        <div id="walletStatus" class="wallet-status">
+          Wallet is optional in this prototype. NFT play will be added later.
+        </div>
+
+        <div id="xamanPanel" class="xaman-panel hide">
+          <h2>Xaman Sign In</h2>
+
+          <p>
+            Xaman wallet connection will be added after the playable game is working on GitHub.
+          </p>
+
+          <button id="mockConnectBtn" class="small-btn">
+            Continue as Wallet Connected
+          </button>
+
+          <button id="cancelWalletBtn" class="small-btn">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- START SCREEN -->
+    <section id="startScreen" class="start-screen hide">
+      <img
+        src="assets/duckverse-poster.jpeg"
+        class="poster"
+        alt="DUCKYVERSE"
+      />
+
+      <div class="start-card">
+        <p class="studio">RARE INK STUDIOS PRESENTS</p>
+
+        <h1>DUCKYVERSE</h1>
+
+        <p id="playerAccess" class="access-pill">Guest Mode</p>
+
+        <p class="tagline">
+          A one-player cartoon fighter prototype. You are Hero Duck. Rival Duck is CPU.
+        </p>
+
+        <button id="startBtn" class="main-btn">
+          START FIGHT
+        </button>
+
+        <button id="changeWalletBtn" class="small-btn">
+          Wallet Options
+        </button>
+
+        <div class="mini-instructions">
+          <p>
+            <strong>Mobile:</strong> Hold LEFT, RIGHT, tap JUMP, PUNCH, or SPECIAL.
+          </p>
+
+          <p>
+            <strong>Desktop:</strong> A = LEFT, D = RIGHT, W = JUMP, F = PUNCH, G = SPECIAL.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- GAME SCREEN -->
+    <section id="gameScreen" class="game-screen hide">
+      <div class="topbar">
+        <div>
+          <div class="brand">DUCKYVERSE</div>
+          <div id="walletBadge" class="subbrand">1 PLAYER VS CPU · GUEST</div>
+        </div>
+
+        <button id="resetBtn">
+          Restart
+        </button>
+      </div>
+
+      <div class="hud">
+        <div class="hud-card">
+          <div class="name">YOU: HERO DUCK</div>
+          <div class="health">
+            <div id="p1Health"></div>
+          </div>
+        </div>
+
+        <div class="arena-name">
+          DUCKYVERSE CASTLE ARENA
+        </div>
+
+        <div class="hud-card enemy">
+          <div class="name">CPU: RIVAL DUCK</div>
+          <div class="health">
+            <div id="p2Health"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="actionText" class="action-text">
+        Ready. Move close, then tap PUNCH.
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="game" width="960" height="540"></canvas>
+        <div id="winner" class="winner hide"></div>
+      </div>
+
+      <div class="mobile-controls">
+        <div class="move-pad">
+          <button class="control-btn move" data-hold="left">
+            <span>LEFT</span>
+            <small>A</small>
+          </button>
+
+          <button class="control-btn move jump" data-tap="jump">
+            <span>JUMP</span>
+            <small>W</small>
+          </button>
+
+          <button class="control-btn move" data-hold="right">
+            <span>RIGHT</span>
+            <small>D</small>
+          </button>
+        </div>
+
+        <div class="attack-pad">
+          <button class="control-btn punch" data-tap="punch">
+            <span>PUNCH</span>
+            <small>F</small>
+          </button>
+
+          <button class="control-btn special" data-tap="special">
+            <span>SPECIAL</span>
+            <small>G</small>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
