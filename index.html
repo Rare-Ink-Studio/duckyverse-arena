@@ -2,156 +2,80 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+
+  <meta
+    http-equiv="refresh"
+    content="0; url=./DuckyVerse1/"
+  />
+
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    content="width=device-width, initial-scale=1.0"
   />
+
   <title>DUCKYVERSE | Rare Ink Studios</title>
-  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: #050816;
+      color: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .card {
+      width: min(520px, calc(100% - 32px));
+      padding: 28px;
+      border: 3px solid rgba(255, 255, 255, 0.75);
+      border-radius: 24px;
+      background: rgba(2, 6, 23, 0.92);
+      box-shadow: 0 0 28px rgba(56, 189, 248, 0.45);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      color: #facc15;
+      font-size: 48px;
+      line-height: 0.9;
+      text-shadow: 4px 4px 0 #000;
+    }
+
+    p {
+      margin: 0 0 18px;
+      color: #dbeafe;
+      font-size: 18px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    a {
+      display: inline-block;
+      padding: 14px 18px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #fde047, #f59e0b);
+      color: #111827;
+      font-weight: 900;
+      text-decoration: none;
+      box-shadow: 0 6px 0 #000;
+    }
+  </style>
 </head>
 
 <body>
-  <main class="app">
-    <section id="walletScreen" class="wallet-screen">
-      <div class="wallet-card">
-        <p class="studio">RARE INK STUDIOS PRESENTS</p>
-        <h1>DUCKYVERSE</h1>
+  <div class="card">
+    <h1>DUCKYVERSE</h1>
+    <p>Loading the playable DUCKYVERSE game...</p>
+    <a href="./DuckyVerse1/">Open DUCKYVERSE</a>
+  </div>
 
-        <p class="tagline">
-          Connect your Xaman wallet, create one, or skip and play as a guest.
-        </p>
-
-        <div class="wallet-choice-grid">
-          <button id="connectWalletBtn" class="wallet-choice primary-choice">
-            <span>Connect Xaman Wallet</span>
-            <small>Future NFT fighters + full access</small>
-          </button>
-
-          <button id="createWalletBtn" class="wallet-choice">
-            <span>Create Wallet</span>
-            <small>Open Xaman wallet setup</small>
-          </button>
-
-          <button id="skipWalletBtn" class="wallet-choice guest-choice">
-            <span>Skip Wallet</span>
-            <small>Play guest mode for now</small>
-          </button>
-        </div>
-
-        <div id="walletStatus" class="wallet-status">
-          Wallet is optional in this prototype. NFT play will be added later.
-        </div>
-
-        <div id="xamanPanel" class="xaman-panel hide">
-          <h2>Xaman Sign In</h2>
-          <p>Scan the QR code with Xaman or tap the open button on mobile.</p>
-
-          <img id="xamanQr" class="qr hide" alt="Xaman QR code" />
-
-          <a id="xamanOpen" class="main-btn link-btn hide" target="_blank" rel="noopener">
-            Open Xaman
-          </a>
-
-          <button id="mockConnectBtn" class="small-btn">
-            Connect Wallet
-          </button>
-
-          <button id="cancelWalletBtn" class="small-btn">
-            Cancel
-          </button>
-
-          <p class="tiny-note">
-            The Connect Wallet button is a temporary backup while Xaman sign-in is being tested.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section id="startScreen" class="start-screen hide">
-      <img src="assets/duckverse-poster.jpeg" class="poster" alt="DUCKYVERSE" />
-
-      <div class="start-card">
-        <p class="studio">RARE INK STUDIOS PRESENTS</p>
-        <h1>DUCKYVERSE</h1>
-
-        <p id="playerAccess" class="access-pill">Guest Mode</p>
-
-        <p class="tagline">
-          A one-player cartoon fighter prototype. You are Super Duck. Bat Duck is CPU.
-        </p>
-
-        <button id="startBtn" class="main-btn">START FIGHT</button>
-        <button id="changeWalletBtn" class="small-btn">Wallet Options</button>
-
-        <div class="mini-instructions">
-          <p><strong>Mobile:</strong> Hold LEFT, RIGHT, tap JUMP, PUNCH, or SPECIAL.</p>
-          <p><strong>Desktop:</strong> A = LEFT, D = RIGHT, W = JUMP, F = PUNCH, G = SPECIAL.</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="gameScreen" class="game-screen hide">
-      <div class="topbar">
-        <div>
-          <div class="brand">DUCKYVERSE</div>
-          <div id="walletBadge" class="subbrand">1 PLAYER VS CPU · GUEST</div>
-        </div>
-        <button id="resetBtn">Restart</button>
-      </div>
-
-      <div class="hud">
-        <div class="hud-card">
-          <div class="name">YOU: SUPER DUCK</div>
-          <div class="health"><div id="p1Health"></div></div>
-        </div>
-
-        <div class="arena-name">PHANTOM TRAIN STATION</div>
-
-        <div class="hud-card enemy">
-          <div class="name">CPU: BAT DUCK</div>
-          <div class="health"><div id="p2Health"></div></div>
-        </div>
-      </div>
-
-      <div id="actionText" class="action-text">
-        Ready. Move close, then tap PUNCH.
-      </div>
-
-      <div class="canvas-wrap">
-        <canvas id="game" width="960" height="540"></canvas>
-        <div id="winner" class="winner hide"></div>
-      </div>
-
-      <div class="mobile-controls">
-        <div class="move-pad">
-          <button class="control-btn move" data-hold="left">
-            <span>LEFT (A)</span>
-          </button>
-
-          <button class="control-btn move jump" data-tap="jump">
-            <span>JUMP (W)</span>
-          </button>
-
-          <button class="control-btn move" data-hold="right">
-            <span>RIGHT (D)</span>
-          </button>
-        </div>
-
-        <div class="attack-pad">
-          <button class="control-btn punch" data-tap="punch">
-            <span>PUNCH (F)</span>
-            <small>Lunge hit</small>
-          </button>
-
-          <button class="control-btn special" data-tap="special">
-            <span>SPECIAL (G)</span>
-            <small>Dash blast</small>
-          </button>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <script src="game.js"></script>
+  <script>
+    window.location.replace("./DuckyVerse1/");
+  </script>
 </body>
 </html>
