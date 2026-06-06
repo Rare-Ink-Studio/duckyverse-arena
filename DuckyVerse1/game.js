@@ -1,3 +1,8 @@
+const SUPABASE_URL = "https://mtlkzpukuwmbjmevcmam.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_bz9r-y7GSpOom92JEBYvKg_i5jf1Ex4";
+const SUPABASE_REST_BASE = `${SUPABASE_URL}/rest/v1`;
+const SUPABASE_FUNCTION_BASE = `${SUPABASE_URL}/functions/v1`;
+
 const walletScreen = document.getElementById("walletScreen");
 const startScreen = document.getElementById("startScreen");
 const gameScreen = document.getElementById("gameScreen");
@@ -8,6 +13,8 @@ const skipWalletBtn = document.getElementById("skipWalletBtn");
 const changeWalletBtn = document.getElementById("changeWalletBtn");
 const walletStatus = document.getElementById("walletStatus");
 const xamanPanel = document.getElementById("xamanPanel");
+const xamanQr = document.getElementById("xamanQr");
+const xamanOpen = document.getElementById("xamanOpen");
 const mockConnectBtn = document.getElementById("mockConnectBtn");
 const cancelWalletBtn = document.getElementById("cancelWalletBtn");
 
@@ -28,6 +35,8 @@ const keys = {};
 const gravity = 0.75;
 const floorY = 430;
 
+let walletProfile = loadWalletProfile();
+let activeXamanPoll = null;
 let playerMode = "guest";
 let gameOver = false;
 let particles = [];
@@ -89,38 +98,358 @@ function showOnly(screen) {
   screen.classList.remove("hide");
 }
 
-connectWalletBtn.addEventListener("click", function () {
-  xamanPanel.classList.remove("hide");
-  walletStatus.textContent = "Xaman sign-in panel opened. Use Continue as Wallet Connected to play for now.";
-});
+function loadWalletProfile() {
+  try {
+    const stored = localStorage.getItem("duckyverseWalletProfile");
+    const oldStored = localStorage.getItem("duckVerseWalletProfile");
 
-createWalletBtn.addEventListener("click", function () {
-  window.open("https://xaman.app", "_blank");
-  walletStatus.textContent = "Xaman wallet setup opened in a new tab.";
-});
+    if (stored) {
+      return JSON.parse(stored);
+    }
 
-skipWalletBtn.addEventListener("click", function () {
-  playerMode = "guest";
-  playerAccess.textContent = "Guest Mode";
-  walletBadge.textContent = "1 PLAYER VS CPU · GUEST";
-  showOnly(startScreen);
-});
+    if (oldStored) {
+      return JSON.parse(oldStored);
+    }
 
-mockConnectBtn.addEventListener("click", function () {
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveWalletProfile(profile) {
+  localStorage.setItem("duckyverseWalletProfile", JSON.stringify(profile));
+  localStorage.setItem("duckVerseWalletProfile", JSON.stringify(profile));
+}
+
+function getDuckVerseSessionId() {
+  let sessionId = localStorage.getItem("duckyverseSessionId");
+
+  if (!sessionId) {
+    sessionId = localStorage.getItem("duckVerseSessionId");
+  }
+
+  if (!sessionId) {
+    if (window.crypto && crypto.randomUUID) {
+      sessionId = crypto.randomUUID();
+    } else {
+      sessionId = "session_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+    }
+
+    localStorage.setItem("duckyverseSessionId", sessionId);
+    localStorage.setItem("duckVerseSessionId", sessionId);
+  }
+
+  return sessionId;
+}
+
+async function saveDuckVersePlayer(profile) {
+  try {
+    const response = await fetch(`${SUPABASE_REST_BASE}/duckverse_players`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify({
+        session_id: getDuckVerseSessionId(),
+        wallet_address: profile.wallet || null,
+        wallet_type: profile.wallet ? "xaman" : null,
+        access_level: profile.access || "guest",
+        nft_enabled: false,
+        last_seen_at: new Date().toISOString()
+      })
+    });
+
+    if (!response.ok) {
+      console.warn("Supabase player save failed:", await response.text());
+    }
+  } catch (error) {
+    console.warn("Supabase player save failed:", error);
+  }
+}
+
+async function saveDuckVerseWalletEvent(eventType, profile, extraData = {}) {
+  try {
+    const response = await fetch(`${SUPABASE_REST_BASE}/duckverse_wallet_events`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify({
+        wallet_address: profile.wallet || null,
+        event_type: eventType,
+        event_data: {
+          app: "duckyverse-arena",
+          brand: "DUCKYVERSE",
+          access: profile.access || "guest",
+          mode: profile.mode || "guest",
+          session_id: getDuckVerseSessionId(),
+          ...extraData
+        }
+      })
+    });
+
+    if (!response.ok) {
+      console.warn("Supabase wallet event save failed:", await response.text());
+    }
+  } catch (error) {
+    console.warn("Supabase wallet event save failed:", error);
+  }
+}
+
+function updateWalletUI() {
+  if (!walletProfile || walletProfile.mode === "guest") {
+    playerMode = "guest";
+    playerAccess.textContent = "Guest Mode";
+    walletBadge.textContent = "1 PLAYER VS CPU · GUEST";
+    return;
+  }
+
   playerMode = "wallet";
-  playerAccess.textContent = "Wallet Connected";
-  walletBadge.textContent = "1 PLAYER VS CPU · WALLET CONNECTED";
-  showOnly(startScreen);
-});
+  playerAccess.textContent = `Wallet Connected · ${shortWallet(walletProfile.wallet)}`;
+  walletBadge.textContent = `1 PLAYER VS CPU · WALLET ${shortWallet(walletProfile.wallet)}`;
+}
 
+function shortWallet(wallet) {
+  if (!wallet) {
+    return "Connected";
+  }
+
+  if (wallet.length <= 12) {
+    return wallet;
+  }
+
+  return wallet.slice(0, 6) + "..." + wallet.slice(-6);
+}
+
+function stopXamanPolling() {
+  if (activeXamanPoll) {
+    clearInterval(activeXamanPoll);
+    activeXamanPoll = null;
+  }
+}
+
+function showWalletScreen() {
+  stopXamanPolling();
+  showOnly(walletScreen);
+}
+
+function showStartScreen() {
+  stopXamanPolling();
+  updateWalletUI();
+  showOnly(startScreen);
+}
+
+async function connectXamanWallet() {
+  stopXamanPolling();
+
+  xamanPanel.classList.remove("hide");
+  walletStatus.textContent = "Creating Xaman sign-in request...";
+
+  xamanQr.classList.add("hide");
+  xamanQr.removeAttribute("src");
+
+  xamanOpen.classList.add("hide");
+  xamanOpen.removeAttribute("href");
+
+  try {
+    const response = await fetch(`${SUPABASE_FUNCTION_BASE}/xaman-signin`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({
+        app: "duckyverse-arena",
+        brand: "DUCKYVERSE",
+        session_id: getDuckVerseSessionId()
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Could not create Xaman sign-in request.");
+    }
+
+    if (!data.uuid) {
+      throw new Error("Xaman did not return a sign-in UUID.");
+    }
+
+    if (data.qr_png) {
+      xamanQr.src = data.qr_png;
+      xamanQr.classList.remove("hide");
+    }
+
+    if (data.deep_link) {
+      xamanOpen.href = data.deep_link;
+      xamanOpen.classList.remove("hide");
+    }
+
+    walletStatus.textContent = "Xaman request created. Scan the QR code or tap Open Xaman, then approve the sign-in.";
+
+    await saveDuckVerseWalletEvent(
+      "xaman_signin_started",
+      {
+        mode: "pending",
+        wallet: null,
+        access: "pending"
+      },
+      {
+        uuid: data.uuid
+      }
+    );
+
+    pollXamanStatus(data.uuid);
+  } catch (error) {
+    walletStatus.textContent = "Xaman connection error: " + (error.message || "Unknown error.");
+    console.warn("Xaman connection error:", error);
+  }
+}
+
+function pollXamanStatus(uuid) {
+  let tries = 0;
+
+  stopXamanPolling();
+
+  activeXamanPoll = setInterval(async function () {
+    tries++;
+
+    try {
+      const response = await fetch(
+        `${SUPABASE_FUNCTION_BASE}/xaman-status?uuid=${encodeURIComponent(uuid)}`,
+        {
+          method: "GET",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Could not check Xaman status.");
+      }
+
+      if (data.signed && data.account) {
+        stopXamanPolling();
+
+        walletProfile = {
+          mode: "connected",
+          wallet: data.account,
+          access: "wallet",
+          connectedAt: new Date().toISOString(),
+          xamanUuid: uuid
+        };
+
+        saveWalletProfile(walletProfile);
+        await saveDuckVersePlayer(walletProfile);
+        await saveDuckVerseWalletEvent("xaman_wallet_connected", walletProfile, {
+          uuid: uuid
+        });
+
+        walletStatus.textContent = `Wallet connected: ${shortWallet(data.account)}`;
+        showStartScreen();
+        return;
+      }
+
+      if (data.cancelled || data.expired || tries > 90) {
+        stopXamanPolling();
+
+        const eventType = data.cancelled
+          ? "xaman_signin_cancelled"
+          : data.expired
+            ? "xaman_signin_expired"
+            : "xaman_signin_timeout";
+
+        walletStatus.textContent = data.cancelled
+          ? "Xaman sign-in was cancelled."
+          : data.expired
+            ? "Xaman sign-in expired. Tap Connect Xaman Wallet again."
+            : "Xaman sign-in timed out. Tap Connect Xaman Wallet again.";
+
+        await saveDuckVerseWalletEvent(
+          eventType,
+          {
+            mode: eventType,
+            wallet: null,
+            access: "guest"
+          },
+          {
+            uuid: uuid
+          }
+        );
+      }
+    } catch (error) {
+      console.warn("Xaman status check error:", error);
+
+      if (tries > 3) {
+        stopXamanPolling();
+        walletStatus.textContent = "Could not check Xaman status. Please try connecting again.";
+      }
+    }
+  }, 2000);
+}
+
+function createWallet() {
+  walletStatus.textContent = "Opening Xaman wallet setup...";
+  window.open("https://xaman.app", "_blank", "noopener");
+}
+
+async function skipWallet() {
+  stopXamanPolling();
+
+  walletProfile = {
+    mode: "guest",
+    wallet: null,
+    access: "guest",
+    connectedAt: new Date().toISOString()
+  };
+
+  saveWalletProfile(walletProfile);
+  await saveDuckVersePlayer(walletProfile);
+  await saveDuckVerseWalletEvent("guest_skipped_wallet", walletProfile);
+
+  showStartScreen();
+}
+
+async function backupWalletConnect() {
+  stopXamanPolling();
+
+  walletProfile = {
+    mode: "connected",
+    wallet: "rDuckyverseBackupWallet123456789",
+    access: "wallet",
+    connectedAt: new Date().toISOString()
+  };
+
+  saveWalletProfile(walletProfile);
+  await saveDuckVersePlayer(walletProfile);
+  await saveDuckVerseWalletEvent("backup_wallet_connected", walletProfile);
+
+  walletStatus.textContent = "Wallet connected with backup test flow.";
+  showStartScreen();
+}
+
+connectWalletBtn.addEventListener("click", connectXamanWallet);
+createWalletBtn.addEventListener("click", createWallet);
+skipWalletBtn.addEventListener("click", skipWallet);
+changeWalletBtn.addEventListener("click", showWalletScreen);
 cancelWalletBtn.addEventListener("click", function () {
   xamanPanel.classList.add("hide");
-  walletStatus.textContent = "Wallet is optional in this prototype. NFT play will be added later.";
+  walletStatus.textContent = "Wallet connection cancelled. You can connect, create, or skip.";
+  stopXamanPolling();
 });
-
-changeWalletBtn.addEventListener("click", function () {
-  showOnly(walletScreen);
-});
+mockConnectBtn.addEventListener("click", backupWalletConnect);
 
 startBtn.addEventListener("click", function () {
   showOnly(gameScreen);
@@ -128,6 +457,10 @@ startBtn.addEventListener("click", function () {
 });
 
 resetBtn.addEventListener("click", resetFight);
+
+document.addEventListener("contextmenu", function (event) {
+  event.preventDefault();
+});
 
 document.addEventListener("keydown", function (event) {
   keys[event.key.toLowerCase()] = true;
@@ -153,6 +486,7 @@ document.querySelectorAll("[data-hold]").forEach(function (button) {
     function (event) {
       event.preventDefault();
       keys[action] = true;
+      button.classList.add("active");
     },
     { passive: false }
   );
@@ -162,20 +496,34 @@ document.querySelectorAll("[data-hold]").forEach(function (button) {
     function (event) {
       event.preventDefault();
       keys[action] = false;
+      button.classList.remove("active");
+    },
+    { passive: false }
+  );
+
+  button.addEventListener(
+    "touchcancel",
+    function (event) {
+      event.preventDefault();
+      keys[action] = false;
+      button.classList.remove("active");
     },
     { passive: false }
   );
 
   button.addEventListener("mousedown", function () {
     keys[action] = true;
+    button.classList.add("active");
   });
 
   button.addEventListener("mouseup", function () {
     keys[action] = false;
+    button.classList.remove("active");
   });
 
   button.addEventListener("mouseleave", function () {
     keys[action] = false;
+    button.classList.remove("active");
   });
 });
 
@@ -186,13 +534,41 @@ document.querySelectorAll("[data-tap]").forEach(function (button) {
     "touchstart",
     function (event) {
       event.preventDefault();
+      button.classList.add("active");
       tapAction(action);
     },
     { passive: false }
   );
 
+  button.addEventListener(
+    "touchend",
+    function (event) {
+      event.preventDefault();
+      button.classList.remove("active");
+    },
+    { passive: false }
+  );
+
+  button.addEventListener(
+    "touchcancel",
+    function (event) {
+      event.preventDefault();
+      button.classList.remove("active");
+    },
+    { passive: false }
+  );
+
   button.addEventListener("mousedown", function () {
+    button.classList.add("active");
     tapAction(action);
+  });
+
+  button.addEventListener("mouseup", function () {
+    button.classList.remove("active");
+  });
+
+  button.addEventListener("mouseleave", function () {
+    button.classList.remove("active");
   });
 });
 
@@ -287,7 +663,9 @@ function controlPlayer() {
 }
 
 function jump(duck) {
-  if (!duck.onGround || gameOver) return;
+  if (!duck.onGround || gameOver) {
+    return;
+  }
 
   duck.vy = -15.8;
   duck.onGround = false;
@@ -302,8 +680,13 @@ function updateDuck(duck) {
   duck.x += duck.vx;
   duck.y += duck.vy;
 
-  if (duck.x < 70) duck.x = 70;
-  if (duck.x > canvas.width - 70) duck.x = canvas.width - 70;
+  if (duck.x < 70) {
+    duck.x = 70;
+  }
+
+  if (duck.x > canvas.width - 70) {
+    duck.x = canvas.width - 70;
+  }
 
   if (duck.y >= floorY) {
     duck.y = floorY;
@@ -317,14 +700,27 @@ function updateDuck(duck) {
     duck.walkTick *= 0.84;
   }
 
-  if (duck.attackCooldown > 0) duck.attackCooldown--;
-  if (duck.attackFrame > 0) duck.attackFrame--;
-  if (duck.specialFrame > 0) duck.specialFrame--;
-  if (duck.hitFrame > 0) duck.hitFrame--;
+  if (duck.attackCooldown > 0) {
+    duck.attackCooldown--;
+  }
+
+  if (duck.attackFrame > 0) {
+    duck.attackFrame--;
+  }
+
+  if (duck.specialFrame > 0) {
+    duck.specialFrame--;
+  }
+
+  if (duck.hitFrame > 0) {
+    duck.hitFrame--;
+  }
 }
 
 function cpuBrain() {
-  if (gameOver) return;
+  if (gameOver) {
+    return;
+  }
 
   const distance = Math.abs(player.x - cpu.x);
   cpu.facing = player.x < cpu.x ? -1 : 1;
@@ -353,8 +749,17 @@ function cpuBrain() {
 }
 
 function punch(attacker, defender) {
-  if (gameOver) return;
-  if (attacker.attackCooldown > 0) return;
+  if (gameOver) {
+    return;
+  }
+
+  if (attacker.attackCooldown > 0) {
+    if (attacker === player) {
+      actionText.textContent = "PUNCH is recharging.";
+    }
+
+    return;
+  }
 
   attacker.attackCooldown = 24;
   attacker.attackFrame = 14;
@@ -365,7 +770,7 @@ function punch(attacker, defender) {
   const hitY = attacker.y - 92;
 
   if (Math.abs(hitX - defender.x) < 96 && Math.abs(hitY - (defender.y - 92)) < 120) {
-    damageDuck(defender, damage, attacker.facing, "PUNCH!");
+    damageDuck(defender, damage, attacker.facing, "POW!");
     attacker.vx += attacker.facing * 2.4;
   } else {
     makeText(hitX, hitY, "MISS");
@@ -377,8 +782,17 @@ function punch(attacker, defender) {
 }
 
 function special(attacker, defender) {
-  if (gameOver) return;
-  if (attacker.attackCooldown > 0) return;
+  if (gameOver) {
+    return;
+  }
+
+  if (attacker.attackCooldown > 0) {
+    if (attacker === player) {
+      actionText.textContent = "SPECIAL is recharging.";
+    }
+
+    return;
+  }
 
   attacker.attackCooldown = 58;
   attacker.specialFrame = 24;
@@ -435,9 +849,9 @@ function endFight(text) {
 function makeText(x, y, text) {
   particles.push({
     type: "text",
-    x,
-    y,
-    text,
+    x: x,
+    y: y,
+    text: text,
     life: 42
   });
 }
@@ -446,8 +860,8 @@ function makeBurst(x, y) {
   for (let i = 0; i < 18; i++) {
     particles.push({
       type: "spark",
-      x,
-      y,
+      x: x,
+      y: y,
       vx: (Math.random() - 0.5) * 10,
       vy: (Math.random() - 0.8) * 10,
       size: 4 + Math.random() * 7,
@@ -645,5 +1059,6 @@ function gameLoop() {
 }
 
 showOnly(walletScreen);
+updateWalletUI();
 resetFight();
 gameLoop();
